@@ -1,0 +1,8 @@
+appimagelauncher 3.0.0_beta_3-1
+gtk2 2.24.33-5
+ifmetric 0.3-2
+kelvpn 7.7.90-1
+snapd 2.72-1
+v2raya 2.2.7.1-1
+xray-bin 25.10.15-1
+
