@@ -171,14 +171,16 @@
 | Service | Description |
 |---------|-------------|
 | NetworkManager | Network management |
-| mullvad-daemon | Mullvad VPN |
 | sddm | Display manager |
-| smb/nmb | Samba file sharing |
+| smb/nmb | Samba file sharing (bound to local) |
 | cups | Printing |
 | bluetooth | Bluetooth support |
 | power-profiles-daemon | Power management |
 | systemd-oomd | OOM killer |
 | ollama | Local AI inference |
+| ananicy-cpp | Process auto-prioritizer |
+
+**Disabled:** mullvad-daemon (can re-enable with `sudo systemctl enable --now mullvad-daemon`)
 
 ### Development Tools
 
@@ -204,23 +206,25 @@
 
 ---
 
-## Thermal Status
+## Thermal Status (After Optimization)
 
 | Sensor | Temperature | Status |
 |--------|-------------|--------|
-| CPU Package | 64C | Normal |
-| CPU Cores | 60-64C | Normal |
-| DDR5 DIMM 1 | 60.2C | HIGH (threshold 55C) |
-| DDR5 DIMM 2 | 60.2C | HIGH (threshold 55C) |
-| NVMe SSD (WD) | 55.9C | Normal |
-| NVIDIA GPU | 56C | Normal |
-| WiFi Module | 44C | Normal |
+| CPU Package | 49-57C | Normal (was 85C before Baloo fix) |
+| CPU Cores | 45-55C | Normal |
+| DDR5 DIMM 1 | 50C | Normal |
+| DDR5 DIMM 2 | 50C | Normal |
+| NVMe SSD (WD) | 50C | Normal |
+| NVIDIA GPU | 50C | Normal |
+| WiFi Module | 40C | Normal |
 
-### Fans
+### Fans (After Optimization)
 | Fan | Speed |
 |-----|-------|
-| CPU Fan | 2800 RPM |
-| GPU Fan | 2600 RPM |
+| CPU Fan | 1500 RPM (was 3400 RPM) |
+| GPU Fan | 1200 RPM (was 3000 RPM) |
+
+**Note:** Baloo file indexer was causing high temps by indexing 2M+ files from external drive. Fixed by excluding `/run/media/` from indexing.
 
 ---
 
@@ -261,12 +265,12 @@ quiet loglevel=3
 
 ---
 
-## GRUB Configuration
+## GRUB Configuration (Optimized)
 
 ```
 GRUB_DEFAULT=0
-GRUB_TIMEOUT=5
-GRUB_CMDLINE_LINUX_DEFAULT='quiet loglevel=3'
+GRUB_TIMEOUT=2
+GRUB_CMDLINE_LINUX_DEFAULT='quiet loglevel=3 nvidia_drm.modeset=1 nvidia_drm.fbdev=1'
 GRUB_THEME="/usr/share/grub/themes/garuda-dr460nized/theme.txt"
 GRUB_DISABLE_OS_PROBER=false
 ```

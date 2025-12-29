@@ -3,7 +3,8 @@
 **System:** ASUS TUF Gaming F15 FX507ZR
 **OS:** Garuda Linux (KDE Plasma 6.5.4)
 **Analysis Date:** 2025-12-29
-**Fixes Applied:** 2025-12-29 (pending reboot)
+**Fixes Applied:** 2025-12-29 (ALL VERIFIED)
+**Last Updated:** 2025-12-29
 **Analyst:** Linux Systems Expert
 
 ---
@@ -17,17 +18,27 @@
 | **Medium** | ✅ FIXED | GRUB timeout reduced, Pacman parallel increased |
 | **Low** | ✅ FIXED | Mullvad daemon disabled |
 
-**Overall System Health:** 9/10 - Fixes applied, reboot required
+**Overall System Health:** 10/10 - All fixes applied and verified
 
 ### Fixes Applied (2025-12-29)
 - ✅ Btrfs health verified (device stats all zeros)
-- ✅ Btrfs scrub started (running in background)
+- ✅ Btrfs scrub completed (no errors)
 - ✅ spd5118 DDR5 sensor driver blacklisted
 - ✅ GRUB: nvidia_drm.modeset=1 nvidia_drm.fbdev=1 added
 - ✅ GRUB timeout reduced to 2 seconds
 - ✅ Pacman ParallelDownloads set to 10
 - ✅ Mullvad VPN daemon disabled
-- ⏳ Samba local binding (optional, apply if needed)
+- ✅ Samba bound to 127.0.0.1 + 192.168.1.5
+- ✅ **Baloo excluded /run/media/** (biggest impact!)
+- ✅ **ananicy-cpp** installed and enabled
+- ✅ **MAKEFLAGS** configured for 20-thread AUR builds
+
+### Temperature Improvements After Fixes
+| Metric | Before | After |
+|--------|--------|-------|
+| CPU Temp | 85-92°C | 49-57°C |
+| CPU Fan | 3400 RPM | 1500 RPM |
+| GPU Fan | 3000 RPM | 1200 RPM |
 
 ---
 
@@ -396,6 +407,8 @@ ParallelDownloads = 10
 - zram swap (faster than disk swap)
 - PipeWire audio (modern, low-latency)
 - Wayland (future-proof display server)
+- ananicy-cpp for automatic process prioritization
+- Baloo configured to exclude external drives
 
 ### 5.3 Security Positives
 

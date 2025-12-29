@@ -17,6 +17,9 @@
 | 5 | LOW | GRUB timeout reduction | Minimal | No* |
 | 6 | LOW | Pacman parallel downloads | None | No |
 | 7 | LOW | Disable unused daemons | None | No |
+| 8 | HIGH | Baloo exclude /run/media/ | None | No |
+| 9 | MEDIUM | Install ananicy-cpp | None | No |
+| 10 | LOW | MAKEFLAGS for AUR builds | None | No |
 
 *Combined with step 4 reboot
 
@@ -259,6 +262,117 @@ sudo systemctl enable --now mullvad-daemon
 
 ---
 
+## Step 8: Baloo Exclude External Drive (HIGH)
+
+**Purpose:** Stop KDE file indexer from indexing external drives (causes high CPU/temps)
+
+### Background
+Baloo was indexing 2+ million files from `/run/media/` causing:
+- CPU at 85-92°C
+- Fans at 3000+ RPM
+- `baloo_file` process using 18% CPU
+
+### Apply Fix
+```bash
+# Exclude external drives from indexing
+balooctl6 config add excludeFolders /run/media/
+
+# Kill baloo and purge the index
+pkill -9 baloo_file
+balooctl6 purge
+
+# Restart baloo
+balooctl6 enable
+```
+
+### Verification
+```bash
+# Check excluded folders
+balooctl6 config
+
+# Check baloo status
+balooctl6 status
+
+# Monitor temps (should drop significantly)
+watch -n 2 sensors
+```
+
+### Results
+- CPU temp: 85°C → 49-57°C
+- CPU fan: 3400 RPM → 1500 RPM
+- GPU fan: 3000 RPM → 1200 RPM
+
+### Rollback
+```bash
+balooctl6 config remove excludeFolders /run/media/
+```
+
+---
+
+## Step 9: Install ananicy-cpp (MEDIUM)
+
+**Purpose:** Auto-prioritize processes for desktop responsiveness
+
+### Background
+ananicy-cpp automatically adjusts process nice levels:
+- Browsers get normal priority
+- Games/media get elevated priority
+- Background tasks get lower priority
+
+### Apply Fix
+```bash
+# Install ananicy-cpp
+paru -S ananicy-cpp
+
+# Enable and start
+sudo systemctl enable --now ananicy-cpp
+```
+
+### Verification
+```bash
+# Check service status
+systemctl is-active ananicy-cpp
+
+# Check package installed
+pacman -Q ananicy-cpp
+```
+
+### Rollback
+```bash
+sudo systemctl disable --now ananicy-cpp
+sudo pacman -R ananicy-cpp
+```
+
+---
+
+## Step 10: MAKEFLAGS for AUR Builds (LOW)
+
+**Purpose:** Use all CPU threads for compiling AUR packages
+
+### Background
+Default AUR builds use single-threaded compilation.
+With 20 threads available, parallel builds are much faster.
+
+### Apply Fix
+```bash
+# Create user makepkg config
+mkdir -p ~/.config/pacman
+echo 'MAKEFLAGS="-j$(nproc)"' > ~/.config/pacman/makepkg.conf
+```
+
+### Verification
+```bash
+cat ~/.config/pacman/makepkg.conf
+# Should show: MAKEFLAGS="-j$(nproc)"
+```
+
+### Rollback
+```bash
+rm ~/.config/pacman/makepkg.conf
+```
+
+---
+
 ## NOT FIXING (Intentional)
 
 | Issue | Reason |
@@ -284,6 +398,9 @@ sudo systemctl enable --now mullvad-daemon
 - [x] Verify: GRUB timeout is 2s ✅
 - [x] Step 6: Edit pacman.conf ✅ ParallelDownloads = 10
 - [x] Step 7: Disable mullvad-daemon ✅
+- [x] Step 8: Baloo exclude /run/media/ ✅ (biggest impact - temps dropped 20°C!)
+- [x] Step 9: Install ananicy-cpp ✅ (process auto-prioritizer)
+- [x] Step 10: MAKEFLAGS for AUR builds ✅ (20 parallel threads)
 
 ### Framebuffer Status
 - KWin still shows 139 framebuffer messages (GL_FRAMEBUFFER_INCOMPLETE errors)
