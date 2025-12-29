@@ -1,0 +1,30 @@
+{
+  "project": "garuda-restore",
+  "version": "1.0.0",
+  "stack": {
+    "type": "shell-scripts",
+    "platform": "Garuda Linux (Arch-based)",
+    "desktop": "KDE Plasma",
+    "language": "Bash"
+  },
+  "entryPoints": {
+    "backup": "scripts/backup-settings.sh",
+    "restore": "scripts/restore.sh",
+    "restoreFull": "scripts/restore-settings.sh",
+    "dailyBackup": "scripts/daily-backup.sh",
+    "setupBackup": "scripts/setup-daily-backup.sh"
+  },
+  "roles": ["shell", "linux", "security"],
+  "defaultRole": "shell",
+  "team": ["shell", "linux", "security"],
+  "rag": {
+    "enabled": false,
+    "exclude": [
+      "packages",
+      "temp",
+      ".git",
+      "*.tar.gz"
+    ]
+  },
+  "globalLibrary": "~/.claude"
+}

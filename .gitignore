@@ -1,0 +1,24 @@
+# Backup archives (too large for git)
+*.tar.gz
+garuda-backup-*/
+
+# Temporary files
+temp/
+
+# Claude Code - Machine-specific (DO NOT COMMIT)
+.claude.json
+.claude/settings.local.json
+.claude-data/sessions/
+.claude-data/tasks/
+.rag/
+
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Claude Code - COMMIT these (shared with team):
+# CLAUDE.md              - project rules
+# .claude/config.json    - project configuration
+# .claude-data/context.md - project state (optional)

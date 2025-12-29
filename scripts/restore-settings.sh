@@ -224,6 +224,14 @@ if [ -d "$BACKUP_DIR/dotfiles" ]; then
     done
     # Git config directory
     [ -d "$BACKUP_DIR/dotfiles/git" ] && mkdir -p "$HOME/.config" && cp -r "$BACKUP_DIR/dotfiles/git" "$HOME/.config/"
+
+    # Oh My Zsh custom plugins/themes
+    if [ -d "$BACKUP_DIR/dotfiles/oh-my-zsh-custom" ]; then
+        mkdir -p "$HOME/.oh-my-zsh/custom"
+        cp -r "$BACKUP_DIR/dotfiles/oh-my-zsh-custom/"* "$HOME/.oh-my-zsh/custom/" 2>/dev/null || true
+        echo "   ✓ Oh My Zsh custom plugins/themes restored"
+    fi
+
     echo "   ✓ Dotfiles restored"
 else
     echo "   No dotfiles to restore"
@@ -452,7 +460,8 @@ echo "  ✓ Wallpapers"
 echo "  ✓ Fonts and ICC color profiles"
 echo "  ✓ Icons and themes"
 echo "  ✓ Git configuration"
-echo "  ✓ Shell configs + history (Fish, Bash, Zsh)"
+echo "  ✓ Shell configs + history (Zsh, Fish, Bash)"
+echo "  ✓ Zsh: Oh My Zsh plugins, Powerlevel10k config"
 echo "  ✓ Blender, GIMP, Krita, Inkscape plugins"
 echo "  ✓ VS Code extensions"
 echo "  ✓ Daily backup timer (auto-configured!)"

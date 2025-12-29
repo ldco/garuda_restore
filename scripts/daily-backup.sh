@@ -124,6 +124,19 @@ fi
 
 log "Sudo authentication successful"
 
+# Start a background process to keep sudo credentials alive during the backup
+# This refreshes sudo every 60 seconds to prevent timeout during long backup
+(
+    while true; do
+        sleep 60
+        sudo -n -v 2>/dev/null || break
+    done
+) &
+SUDO_KEEPALIVE_PID=$!
+trap "kill $SUDO_KEEPALIVE_PID 2>/dev/null" EXIT
+
+log "Sudo keep-alive started (PID: $SUDO_KEEPALIVE_PID)"
+
 # NOW show "In Progress" - after password was accepted!
 sleep 1
 notify "⏳ Garuda Backup In Progress" "Backing up packages, configs, KDE settings...\nThis may take several minutes." "document-save" "normal" "progress"

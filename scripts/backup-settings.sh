@@ -127,7 +127,7 @@ LOCAL_SHARE_DIRS=(
 
 for dir in "${LOCAL_SHARE_DIRS[@]}"; do
     if [ -d "$HOME/.local/share/$dir" ]; then
-        cp -r "$HOME/.local/share/$dir" "$BACKUP_DIR/local-share/"
+        cp -r "$HOME/.local/share/$dir" "$BACKUP_DIR/local-share/" 2>/dev/null || true
     fi
 done
 
@@ -234,6 +234,7 @@ DOTFILES=(
     ".profile"
     ".zshrc"
     ".zsh_history"
+    ".p10k.zsh"
     ".fish_profile"
     ".gitconfig"
     ".gitignore_global"
@@ -258,6 +259,13 @@ done
 
 # Git config directory
 [ -d "$HOME/.config/git" ] && cp -r "$HOME/.config/git" "$BACKUP_DIR/dotfiles/"
+
+# Oh My Zsh (plugins, custom themes, custom scripts)
+if [ -d "$HOME/.oh-my-zsh/custom" ]; then
+    mkdir -p "$BACKUP_DIR/dotfiles/oh-my-zsh-custom"
+    cp -r "$HOME/.oh-my-zsh/custom/"* "$BACKUP_DIR/dotfiles/oh-my-zsh-custom/" 2>/dev/null || true
+    echo "   ✓ Oh My Zsh custom plugins/themes backed up"
+fi
 
 echo "   ✓ Dotfiles and git config backed up"
 
@@ -503,7 +511,8 @@ echo "  ✓ Wallpapers"
 echo "  ✓ Fonts and ICC color profiles"
 echo "  ✓ Icons and themes"
 echo "  ✓ Git configuration"
-echo "  ✓ Shell configs + history (Fish, Bash, Zsh)"
+echo "  ✓ Shell configs + history (Zsh, Fish, Bash)"
+echo "  ✓ Zsh: Oh My Zsh plugins, Powerlevel10k config (.p10k.zsh)"
 echo "  ✓ Blender, GIMP, Krita, Inkscape plugins"
 echo "  ✓ VS Code extensions list"
 echo "  ✓ Systemd services + backup timer"
