@@ -196,3 +196,4 @@ Your system will be **identical**:
 - rsync, tar, pacman
 - paru (for AUR packages)
 - Optional: kdialog (for GUI notifications)
+# test
