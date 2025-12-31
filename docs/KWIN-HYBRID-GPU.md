@@ -1,7 +1,10 @@
 # KWin Hybrid GPU Framebuffer Errors
 
-## Status: ✅ FIXED (2025-12-29)
-Option 1 (nvidia_drm.fbdev=1) has been applied. Reboot required.
+## Status: ⚠️ REVERTED (2025-12-31)
+
+`nvidia_drm.fbdev=1` was removed - it caused thermal issues (GPU stuck at 40W, system overheating to 96°C and rebooting).
+
+**Current state:** Framebuffer log errors occur but are **harmless**. System is stable.
 
 ---
 
