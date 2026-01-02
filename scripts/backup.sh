@@ -2,22 +2,89 @@
 # ============================================================================
 # Garuda KDE Linux - COMPLETE System Settings Backup Script
 # ============================================================================
-# This script backs up ALL settings from your current Garuda KDE installation
-# including: KDE panels, wallpapers, app configs, themes, fonts, and more.
+# This script backs up ALL settings from your current Garuda KDE installation.
 #
-# Run this script on your CURRENT system BEFORE reinstalling.
+# Usage:
+#   ./backup.sh              # Manual backup (interactive)
+#   ./backup.sh --daemon     # Scheduled backup (notifications, GUI sudo, archive mgmt)
 # ============================================================================
 
 set -e
 
-# Use readable date format: 2025-12-12_22-15
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+BACKUP_DEST="${BACKUP_DEST:-/run/media/ldco/3734114f-7123-41f5-8f63-7f43c94879eb/LinuxDCO/backups}"
+LOG_FILE="$HOME/.local/share/garuda-backup/backup.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DAEMON_MODE=false
+
+# Parse arguments
+[[ "$1" == "--daemon" ]] && DAEMON_MODE=true
+
+# Use readable date format
 READABLE_DATE=$(date +%Y-%m-%d_%H-%M)
 BACKUP_DIR="$HOME/garuda-backup-$READABLE_DATE"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ============================================================================
+# DAEMON MODE FUNCTIONS (notifications, logging, GUI sudo)
+# ============================================================================
+if [ "$DAEMON_MODE" = true ]; then
+    export DISPLAY="${DISPLAY:-:0}"
+    export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
+    mkdir -p "$(dirname "$LOG_FILE")"
+    mkdir -p "$BACKUP_DEST"
+
+    log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
+
+    notify() {
+        local title="$1" message="$2" icon="$3" urgency="${4:-normal}"
+        command -v notify-send &>/dev/null && notify-send -u "$urgency" -i "$icon" -a "Garuda Backup" "$title" "$message" 2>/dev/null
+    }
+
+    log "=========================================="
+    log "Starting scheduled backup"
+    notify "🔄 Garuda Backup Started" "Preparing backup...\nYou will be asked for your password." "system-run" "normal"
+
+    # GUI sudo authentication
+    ASKPASS_SCRIPT=$(mktemp)
+    cat > "$ASKPASS_SCRIPT" << 'ASKPASS_EOF'
+#!/bin/bash
+if command -v kdialog &>/dev/null; then
+    kdialog --password "Garuda Backup requires administrator privileges.\n\nEnter your password:" --title "🔐 Garuda Backup"
+elif command -v zenity &>/dev/null; then
+    zenity --password --title="Garuda Backup"
+else
+    /usr/bin/ksshaskpass "Garuda Backup - Enter password:"
+fi
+ASKPASS_EOF
+    chmod +x "$ASKPASS_SCRIPT"
+    export SUDO_ASKPASS="$ASKPASS_SCRIPT"
+
+    if ! sudo -A -v 2>/dev/null && ! sudo -v 2>/dev/null; then
+        log "ERROR: Sudo authentication failed"
+        notify "❌ Garuda Backup Cancelled" "Authentication failed." "dialog-error" "critical"
+        rm -f "$ASKPASS_SCRIPT"
+        exit 1
+    fi
+    rm -f "$ASKPASS_SCRIPT"
+    log "Sudo authenticated"
+
+    # Keep sudo alive
+    (while true; do sleep 60; sudo -n -v 2>/dev/null || break; done) &
+    SUDO_PID=$!
+    trap "kill $SUDO_PID 2>/dev/null" EXIT
+
+    notify "⏳ Garuda Backup In Progress" "Backing up packages, configs, KDE settings...\nThis may take several minutes." "document-save" "normal"
+else
+    log() { echo "$1"; }
+    notify() { :; }
+fi
+
 mkdir -p "$BACKUP_DIR"/{packages,systemd,system,wallpapers,security,networks,browsers}
 
 echo "╔══════════════════════════════════════════════════════════════════════╗"
-echo "║   Garuda KDE Linux - ULTIMATE COMPLETE System Backup Script          ║"
+echo "║   Garuda KDE Linux - System Backup                                   ║"
 echo "╚══════════════════════════════════════════════════════════════════════╝"
 echo ""
 echo "Backup directory: $BACKUP_DIR"
@@ -389,55 +456,67 @@ fi
 echo "   ✓ Docker data backed up"
 
 # ============================================================================
-# 14. DEVELOPMENT ENVIRONMENTS
+# 14. DEVELOPMENT ENVIRONMENTS (CONFIG FILES ONLY - caches are reinstallable)
 # ============================================================================
-echo "[14/16] Backing up development environments..."
+echo "[14/16] Backing up development environment configs..."
 
 mkdir -p "$BACKUP_DIR/dev-envs"
 
-# Node.js / NPM / Yarn
-[ -d "$HOME/.npm" ] && cp -r "$HOME/.npm" "$BACKUP_DIR/dev-envs/"
-[ -f "$HOME/.npmrc" ] && cp "$HOME/.npmrc" "$BACKUP_DIR/dev-envs/"
+# Track which dev tools are installed (for restore script to reinstall)
+DEV_TOOLS_FILE="$BACKUP_DIR/dev-envs/installed-tools.txt"
+> "$DEV_TOOLS_FILE"
+
+# Node.js / NPM / Yarn - CONFIG ONLY (not .npm cache or .nvm versions)
+[ -f "$HOME/.npmrc" ] && cp "$HOME/.npmrc" "$BACKUP_DIR/dev-envs/" && echo "nodejs" >> "$DEV_TOOLS_FILE"
 [ -f "$HOME/.yarnrc" ] && cp "$HOME/.yarnrc" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.yarn" ] && cp -r "$HOME/.yarn" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.nvm" ] && cp -r "$HOME/.nvm" "$BACKUP_DIR/dev-envs/"
-echo "   ✓ Node.js/NPM/Yarn settings"
+[ -f "$HOME/.yarnrc.yml" ] && cp "$HOME/.yarnrc.yml" "$BACKUP_DIR/dev-envs/"
+# Save current Node version for reinstall
+command -v node &>/dev/null && node -v > "$BACKUP_DIR/dev-envs/node-version.txt"
+echo "   ✓ Node.js/NPM/Yarn configs"
 
-# Python / Conda / Pip
-[ -d "$HOME/.conda" ] && cp -r "$HOME/.conda" "$BACKUP_DIR/dev-envs/"
-[ -f "$HOME/.condarc" ] && cp "$HOME/.condarc" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.local/share/virtualenvs" ] && cp -r "$HOME/.local/share/virtualenvs" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.pyenv" ] && cp -r "$HOME/.pyenv" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.poetry" ] && cp -r "$HOME/.poetry" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.local/pipx" ] && cp -r "$HOME/.local/pipx" "$BACKUP_DIR/dev-envs/"
+# Python / Conda / Pip - CONFIG ONLY (not envs or caches)
+[ -f "$HOME/.condarc" ] && cp "$HOME/.condarc" "$BACKUP_DIR/dev-envs/" && echo "conda" >> "$DEV_TOOLS_FILE"
 [ -f "$HOME/.pip/pip.conf" ] && mkdir -p "$BACKUP_DIR/dev-envs/.pip" && cp "$HOME/.pip/pip.conf" "$BACKUP_DIR/dev-envs/.pip/"
-# Miniconda/Anaconda (large, backup config only)
-[ -d "$HOME/miniconda3" ] && cp -r "$HOME/miniconda3/envs" "$BACKUP_DIR/dev-envs/conda-envs" 2>/dev/null || true
-[ -d "$HOME/anaconda3" ] && cp -r "$HOME/anaconda3/envs" "$BACKUP_DIR/dev-envs/anaconda-envs" 2>/dev/null || true
-echo "   ✓ Python/Conda/Pip settings"
+[ -f "$HOME/.config/pip/pip.conf" ] && mkdir -p "$BACKUP_DIR/dev-envs/.config/pip" && cp "$HOME/.config/pip/pip.conf" "$BACKUP_DIR/dev-envs/.config/pip/"
+# Export conda environment specs (can recreate from these)
+if command -v conda &>/dev/null; then
+    conda env list --json > "$BACKUP_DIR/dev-envs/conda-envs.json" 2>/dev/null || true
+    for env in $(conda env list | grep -v "^#" | awk '{print $1}' | grep -v "^$"); do
+        conda env export -n "$env" > "$BACKUP_DIR/dev-envs/conda-env-$env.yml" 2>/dev/null || true
+    done
+fi
+command -v python &>/dev/null && python --version > "$BACKUP_DIR/dev-envs/python-version.txt" 2>&1
+echo "   ✓ Python/Conda/Pip configs"
 
-# Rust / Cargo
-[ -d "$HOME/.cargo" ] && cp -r "$HOME/.cargo" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.rustup" ] && cp -r "$HOME/.rustup" "$BACKUP_DIR/dev-envs/"
-echo "   ✓ Rust/Cargo settings"
+# Rust / Cargo - CONFIG ONLY (not registry cache or toolchains)
+[ -f "$HOME/.cargo/config.toml" ] && mkdir -p "$BACKUP_DIR/dev-envs/.cargo" && cp "$HOME/.cargo/config.toml" "$BACKUP_DIR/dev-envs/.cargo/" && echo "rust" >> "$DEV_TOOLS_FILE"
+[ -f "$HOME/.cargo/config" ] && mkdir -p "$BACKUP_DIR/dev-envs/.cargo" && cp "$HOME/.cargo/config" "$BACKUP_DIR/dev-envs/.cargo/"
+# Save installed Rust version
+command -v rustc &>/dev/null && rustc --version > "$BACKUP_DIR/dev-envs/rust-version.txt"
+echo "   ✓ Rust/Cargo configs"
 
-# Go
-[ -d "$HOME/go" ] && cp -r "$HOME/go" "$BACKUP_DIR/dev-envs/"
+# Go - CONFIG ONLY (not pkg/mod cache)
+[ -f "$HOME/go/env" ] && mkdir -p "$BACKUP_DIR/dev-envs/go" && cp "$HOME/go/env" "$BACKUP_DIR/dev-envs/go/" && echo "go" >> "$DEV_TOOLS_FILE"
 [ -d "$HOME/.config/go" ] && cp -r "$HOME/.config/go" "$BACKUP_DIR/dev-envs/"
-echo "   ✓ Go settings"
+# Save Go version
+command -v go &>/dev/null && go version > "$BACKUP_DIR/dev-envs/go-version.txt"
+echo "   ✓ Go configs"
 
-# PHP / Composer
-[ -d "$HOME/.composer" ] && cp -r "$HOME/.composer" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.config/composer" ] && cp -r "$HOME/.config/composer" "$BACKUP_DIR/dev-envs/"
-echo "   ✓ PHP/Composer settings"
+# PHP / Composer - CONFIG ONLY
+[ -f "$HOME/.composer/config.json" ] && mkdir -p "$BACKUP_DIR/dev-envs/.composer" && cp "$HOME/.composer/config.json" "$BACKUP_DIR/dev-envs/.composer/" && echo "php" >> "$DEV_TOOLS_FILE"
+[ -f "$HOME/.composer/auth.json" ] && cp "$HOME/.composer/auth.json" "$BACKUP_DIR/dev-envs/.composer/"
+[ -f "$HOME/.config/composer/config.json" ] && mkdir -p "$BACKUP_DIR/dev-envs/.config/composer" && cp "$HOME/.config/composer/config.json" "$BACKUP_DIR/dev-envs/.config/composer/"
+echo "   ✓ PHP/Composer configs"
 
-# Ruby / Gem
-[ -d "$HOME/.gem" ] && cp -r "$HOME/.gem" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.rbenv" ] && cp -r "$HOME/.rbenv" "$BACKUP_DIR/dev-envs/"
-[ -d "$HOME/.rvm" ] && cp -r "$HOME/.rvm" "$BACKUP_DIR/dev-envs/"
-echo "   ✓ Ruby/Gem settings"
+# Ruby / Gem - CONFIG ONLY
+[ -f "$HOME/.gemrc" ] && cp "$HOME/.gemrc" "$BACKUP_DIR/dev-envs/" && echo "ruby" >> "$DEV_TOOLS_FILE"
+command -v ruby &>/dev/null && ruby --version > "$BACKUP_DIR/dev-envs/ruby-version.txt"
+echo "   ✓ Ruby/Gem configs"
 
-echo "   ✓ Development environments backed up"
+# Remove duplicates from installed tools list
+sort -u "$DEV_TOOLS_FILE" -o "$DEV_TOOLS_FILE"
+
+echo "   ✓ Development configs backed up (caches excluded - will reinstall on restore)"
 
 # ============================================================================
 # 15. SYSTEM CONFIGS (sudo should already be authenticated)
@@ -476,7 +555,7 @@ echo "   ✓ System configs backed up"
 echo "[16/16] Creating backup archive..."
 
 # Copy restore script
-cp "$(dirname "$0")/restore-settings.sh" "$BACKUP_DIR/" 2>/dev/null || true
+cp "$(dirname "$0")/restore.sh" "$BACKUP_DIR/" 2>/dev/null || true
 
 # Calculate backup size
 BACKUP_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
@@ -488,42 +567,63 @@ tar -czf "$ARCHIVE_NAME" "$(basename "$BACKUP_DIR")"
 
 echo "   ✓ Archive created: $HOME/$ARCHIVE_NAME"
 
-echo ""
-echo "╔══════════════════════════════════════════════════════════════════════╗"
-echo "║              ULTIMATE COMPLETE BACKUP FINISHED!                       ║"
-echo "╚══════════════════════════════════════════════════════════════════════╝"
-echo ""
-echo "Backup directory: $BACKUP_DIR"
-echo "Backup archive:   $HOME/$ARCHIVE_NAME"
-echo "Total size:       $BACKUP_SIZE"
-echo ""
-echo "WHAT WAS BACKED UP:"
-echo "  ✓ All packages (pacman + AUR)"
-echo "  ✓ ALL KDE/Plasma settings (panels, widgets, effects, animations, shortcuts)"
-echo "  ✓ ALL application configs (~/.config) with browser profiles & history"
-echo "  ✓ SSH keys (~/.ssh)"
-echo "  ✓ GPG keys (~/.gnupg)"
-echo "  ✓ Network/VPN connections (WiFi passwords, WireGuard, OpenVPN)"
-echo "  ✓ Docker (config, volumes, compose files, images list)"
-echo "  ✓ DEV ENVS: Node.js/npm/yarn, Python/Conda/pip, Rust/Cargo, Go, PHP, Ruby"
-echo "  ✓ Clipboard history (klipper)"
-echo "  ✓ Wallpapers"
-echo "  ✓ Fonts and ICC color profiles"
-echo "  ✓ Icons and themes"
-echo "  ✓ Git configuration"
-echo "  ✓ Shell configs + history (Zsh, Fish, Bash)"
-echo "  ✓ Zsh: Oh My Zsh plugins, Powerlevel10k config (.p10k.zsh)"
-echo "  ✓ Blender, GIMP, Krita, Inkscape plugins"
-echo "  ✓ VS Code extensions list"
-echo "  ✓ Systemd services + backup timer"
-echo "  ✓ System configs (samba, grub, pacman)"
-echo "  ✓ The backup scripts themselves!"
-echo ""
-echo "NEXT STEPS:"
-echo "1. Copy '$ARCHIVE_NAME' to external storage"
-echo "2. Install fresh Garuda KDE"
-echo "3. Extract and run restore-settings.sh"
-echo ""
+# ============================================================================
+# DAEMON MODE: Move archive to backup destination, cleanup old backups
+# ============================================================================
+if [ "$DAEMON_MODE" = true ]; then
+    ARCHIVE="$HOME/$ARCHIVE_NAME"
 
-# Explicitly exit with success
+    # Remove "last" from previous backup filename
+    PREV_LAST=$(ls "$BACKUP_DEST"/garuda-backup-*-last.tar.gz 2>/dev/null | head -1)
+    if [ -n "$PREV_LAST" ] && [ -f "$PREV_LAST" ]; then
+        NEW_NAME=$(echo "$PREV_LAST" | sed 's/-last\.tar\.gz$/.tar.gz/')
+        mv "$PREV_LAST" "$NEW_NAME"
+        log "Renamed previous: $(basename "$PREV_LAST") -> $(basename "$NEW_NAME")"
+    fi
+
+    # Move new archive and add "last" suffix
+    ARCHIVE_BASENAME=$(basename "$ARCHIVE" .tar.gz)
+    FINAL_ARCHIVE="$BACKUP_DEST/${ARCHIVE_BASENAME}-last.tar.gz"
+    mv "$ARCHIVE" "$FINAL_ARCHIVE"
+
+    # Remove uncompressed backup directory
+    rm -rf "$BACKUP_DIR"
+
+    # Get backup size
+    FINAL_SIZE=$(du -h "$FINAL_ARCHIVE" | cut -f1)
+
+    # Cleanup old backups (keep only 2)
+    BACKUPS_TO_DELETE=$(ls -t "$BACKUP_DEST"/garuda-backup-*.tar.gz 2>/dev/null | tail -n +3)
+    if [ -n "$BACKUPS_TO_DELETE" ]; then
+        echo "$BACKUPS_TO_DELETE" | while read -r old_backup; do
+            log "Deleting old backup: $(basename "$old_backup")"
+            rm -f "$old_backup"
+        done
+    fi
+
+    BACKUP_COUNT=$(ls -1 "$BACKUP_DEST"/garuda-backup-*.tar.gz 2>/dev/null | wc -l)
+    log "SUCCESS: Backup saved to $FINAL_ARCHIVE ($FINAL_SIZE)"
+    log "Cleanup complete. $BACKUP_COUNT backups remaining."
+    log "=========================================="
+
+    notify "✅ Garuda Backup Complete" "Saved: $(basename "$FINAL_ARCHIVE")\nSize: $FINAL_SIZE\nLocation: $BACKUP_DEST" "dialog-ok" "normal"
+
+    echo ""
+    echo "✓ Backup complete: $FINAL_ARCHIVE ($FINAL_SIZE)"
+else
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════════════╗"
+    echo "║                    BACKUP FINISHED!                                   ║"
+    echo "╚══════════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Backup directory: $BACKUP_DIR"
+    echo "Backup archive:   $HOME/$ARCHIVE_NAME"
+    echo "Total size:       $BACKUP_SIZE"
+    echo ""
+    echo "NEXT STEPS:"
+    echo "1. Copy '$ARCHIVE_NAME' to external storage"
+    echo "2. Install fresh Garuda KDE"
+    echo "3. Extract and run restore.sh"
+fi
+
 exit 0
