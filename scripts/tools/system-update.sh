@@ -56,9 +56,86 @@ fi
 echo ""
 
 # ============================================
-# 2. CLEAN PACKAGE CACHE
+# 2. DAVINCI RESOLVE UPDATE CHECK
 # ============================================
-echo -e "${BOLD}[2/6] Clean Package Cache${NC}"
+echo -e "${BOLD}[2/7] DaVinci Resolve Update${NC}"
+echo "─────────────────────"
+
+if pacman -Q davinci-resolve &>/dev/null; then
+    DAVINCI_INSTALLED=$(pacman -Q davinci-resolve 2>/dev/null | awk '{print $2}' | cut -d'-' -f1)
+    DAVINCI_AUR=$(paru -Si davinci-resolve 2>/dev/null | grep "^Version" | awk '{print $3}' | cut -d'-' -f1)
+
+    echo "Installed: $DAVINCI_INSTALLED"
+    echo "Available: $DAVINCI_AUR"
+
+    if [ "$DAVINCI_INSTALLED" != "$DAVINCI_AUR" ] && [ -n "$DAVINCI_AUR" ]; then
+        echo ""
+        echo -e "${YELLOW}New version available: $DAVINCI_AUR${NC}"
+        echo ""
+        echo "Blackmagic requires login to download. Steps:"
+        echo "  1. Go to: https://www.blackmagicdesign.com/products/davinciresolve"
+        echo "  2. Download DaVinci Resolve $DAVINCI_AUR for Linux"
+        echo "  3. Save the .zip file to ~/Downloads"
+        echo ""
+
+        read -p "Download now and update? [y/N]: " UPDATE_DAVINCI
+        if [[ "$UPDATE_DAVINCI" =~ ^[Yy]$ ]]; then
+            # Open download page
+            xdg-open "https://www.blackmagicdesign.com/products/davinciresolve" 2>/dev/null &
+
+            echo ""
+            echo -e "${CYAN}Waiting for download...${NC}"
+            echo "Press ENTER when the .zip file is downloaded to ~/Downloads"
+            read -p ""
+
+            # Find the downloaded file
+            DAVINCI_ZIP=$(ls -t ~/Downloads/DaVinci_Resolve_*_Linux.zip 2>/dev/null | head -1)
+
+            if [ -f "$DAVINCI_ZIP" ]; then
+                echo "Found: $DAVINCI_ZIP"
+
+                # Extract to AUR build directory
+                RESOLVE_DIR="$HOME/.cache/paru/clone/davinci-resolve"
+                mkdir -p "$RESOLVE_DIR"
+
+                echo "Extracting to build directory..."
+                unzip -o "$DAVINCI_ZIP" -d "$RESOLVE_DIR/"
+
+                # Run paru to build and install
+                echo ""
+                echo "Building and installing..."
+                paru -S davinci-resolve --rebuild
+
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✓ DaVinci Resolve updated to $DAVINCI_AUR${NC}"
+                    # Clean up
+                    read -p "Remove downloaded .zip? [Y/n]: " CLEANUP_ZIP
+                    if [[ ! "$CLEANUP_ZIP" =~ ^[Nn]$ ]]; then
+                        rm -f "$DAVINCI_ZIP"
+                        echo "Cleaned up"
+                    fi
+                else
+                    echo -e "${RED}✗ Update failed${NC}"
+                fi
+            else
+                echo -e "${RED}No DaVinci zip found in ~/Downloads${NC}"
+                echo "Expected: DaVinci_Resolve_*_Linux.zip"
+            fi
+        else
+            echo "Skipped"
+        fi
+    else
+        echo -e "${GREEN}✓ DaVinci Resolve is up to date${NC}"
+    fi
+else
+    echo "DaVinci Resolve not installed"
+fi
+echo ""
+
+# ============================================
+# 3. CLEAN PACKAGE CACHE
+# ============================================
+echo -e "${BOLD}[3/7] Clean Package Cache${NC}"
 echo "─────────────────────"
 
 CACHE_SIZE=$(du -sh /var/cache/pacman/pkg/ 2>/dev/null | cut -f1)
@@ -84,9 +161,9 @@ fi
 echo ""
 
 # ============================================
-# 3. REMOVE ORPHAN PACKAGES
+# 4. REMOVE ORPHAN PACKAGES
 # ============================================
-echo -e "${BOLD}[3/6] Remove Orphan Packages${NC}"
+echo -e "${BOLD}[4/7] Remove Orphan Packages${NC}"
 echo "─────────────────────"
 
 ORPHANS=$(pacman -Qdt 2>/dev/null)
@@ -111,9 +188,9 @@ fi
 echo ""
 
 # ============================================
-# 4. CLEAN USER CACHE
+# 5. CLEAN USER CACHE
 # ============================================
-echo -e "${BOLD}[4/6] Clean User Cache${NC}"
+echo -e "${BOLD}[5/7] Clean User Cache${NC}"
 echo "─────────────────────"
 
 USER_CACHE=$(du -sh ~/.cache 2>/dev/null | cut -f1)
@@ -144,9 +221,9 @@ fi
 echo ""
 
 # ============================================
-# 5. CLEAN JOURNAL LOGS
+# 6. CLEAN JOURNAL LOGS
 # ============================================
-echo -e "${BOLD}[5/6] Clean Journal Logs${NC}"
+echo -e "${BOLD}[6/7] Clean Journal Logs${NC}"
 echo "─────────────────────"
 
 JOURNAL_SIZE=$(journalctl --disk-usage 2>/dev/null | grep -oP '\d+\.\d+\w+' || echo "unknown")
@@ -162,9 +239,9 @@ fi
 echo ""
 
 # ============================================
-# 6. ADDITIONAL MAINTENANCE
+# 7. ADDITIONAL MAINTENANCE
 # ============================================
-echo -e "${BOLD}[6/6] Additional Maintenance${NC}"
+echo -e "${BOLD}[7/7] Additional Maintenance${NC}"
 echo "─────────────────────"
 
 # Failed systemd services

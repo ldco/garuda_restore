@@ -3,7 +3,13 @@
 # ============================================
 # INTERACTIVE SYSTEM HEALTH CHECK
 # Live analysis with fix options
+# Usage:
+#   check           # Quick check (10 areas)
+#   check --deep    # Deep analysis (18 areas)
 # ============================================
+
+DEEP_MODE=false
+[[ "$1" == "--deep" || "$1" == "-d" ]] && DEEP_MODE=true
 
 # Colors
 RED='\033[0;31m'
@@ -20,14 +26,20 @@ declare -a FIXES
 
 echo ""
 echo -e "${BOLD}════════════════════════════════════════${NC}"
-echo -e "${BOLD}      SYSTEM HEALTH CHECK${NC}"
+if [ "$DEEP_MODE" = true ]; then
+    echo -e "${BOLD}      DEEP SYSTEM HEALTH CHECK${NC}"
+    TOTAL_CHECKS=18
+else
+    echo -e "${BOLD}      SYSTEM HEALTH CHECK${NC}"
+    TOTAL_CHECKS=10
+fi
 echo -e "${BOLD}════════════════════════════════════════${NC}"
 echo ""
 
 # ============================================
 # 1. TEMPERATURES
 # ============================================
-echo -e "${CYAN}[1/10] Temperatures${NC}"
+echo -e "${CYAN}[1/$TOTAL_CHECKS] Temperatures${NC}"
 echo "─────────────────────"
 
 if command -v sensors &>/dev/null; then
@@ -67,7 +79,7 @@ echo ""
 # ============================================
 # 2. CPU PERFORMANCE
 # ============================================
-echo -e "${CYAN}[2/10] CPU Performance${NC}"
+echo -e "${CYAN}[2/$TOTAL_CHECKS] CPU Performance${NC}"
 echo "─────────────────────"
 
 GOVERNOR=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null)
@@ -94,7 +106,7 @@ echo ""
 # ============================================
 # 3. GPU STATUS
 # ============================================
-echo -e "${CYAN}[3/10] GPU Status${NC}"
+echo -e "${CYAN}[3/$TOTAL_CHECKS] GPU Status${NC}"
 echo "─────────────────────"
 
 if command -v nvidia-smi &>/dev/null; then
@@ -124,7 +136,7 @@ echo ""
 # ============================================
 # 4. MEMORY
 # ============================================
-echo -e "${CYAN}[4/10] Memory${NC}"
+echo -e "${CYAN}[4/$TOTAL_CHECKS] Memory${NC}"
 echo "─────────────────────"
 
 MEM_TOTAL=$(free -h | grep Mem | awk '{print $2}')
@@ -150,7 +162,7 @@ echo ""
 # ============================================
 # 5. DISK USAGE
 # ============================================
-echo -e "${CYAN}[5/10] Disk Usage${NC}"
+echo -e "${CYAN}[5/$TOTAL_CHECKS] Disk Usage${NC}"
 echo "─────────────────────"
 
 DISK_PERCENT=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
@@ -182,7 +194,7 @@ echo ""
 # ============================================
 # 6. KWIN & DESKTOP
 # ============================================
-echo -e "${CYAN}[6/10] KWin & Desktop${NC}"
+echo -e "${CYAN}[6/$TOTAL_CHECKS] KWin & Desktop${NC}"
 echo "─────────────────────"
 
 KWIN_CPU=$(ps aux | grep "kwin_wayland" | grep -v grep | awk '{print $3}' | head -1)
@@ -216,7 +228,7 @@ echo ""
 # ============================================
 # 7. SERVICES
 # ============================================
-echo -e "${CYAN}[7/10] Services${NC}"
+echo -e "${CYAN}[7/$TOTAL_CHECKS] Services${NC}"
 echo "─────────────────────"
 
 for svc in power-profiles-daemon asusd ananicy-cpp; do
@@ -242,7 +254,7 @@ echo ""
 # ============================================
 # 8. PACKAGES
 # ============================================
-echo -e "${CYAN}[8/10] Packages${NC}"
+echo -e "${CYAN}[8/$TOTAL_CHECKS] Packages${NC}"
 echo "─────────────────────"
 
 ORPHANS=$(pacman -Qdt 2>/dev/null | wc -l)
@@ -261,7 +273,7 @@ echo ""
 # ============================================
 # 9. FILESYSTEM
 # ============================================
-echo -e "${CYAN}[9/10] Filesystem${NC}"
+echo -e "${CYAN}[9/$TOTAL_CHECKS] Filesystem${NC}"
 echo "─────────────────────"
 
 if mount | grep -q btrfs; then
@@ -281,7 +293,7 @@ echo ""
 # ============================================
 # 10. ERRORS (This Boot)
 # ============================================
-echo -e "${CYAN}[10/10] Errors${NC}"
+echo -e "${CYAN}[10/$TOTAL_CHECKS] Errors${NC}"
 echo "─────────────────────"
 
 CRITICAL=$(journalctl -b -p 0..2 --no-pager 2>/dev/null | wc -l)
@@ -307,6 +319,239 @@ else
     echo "Errors: $ERRORS (check: journalctl -b -p err)"
 fi
 echo ""
+
+# ============================================
+# DEEP CHECKS (11-18)
+# ============================================
+if [ "$DEEP_MODE" = true ]; then
+
+# ============================================
+# 11. DISK SMART HEALTH
+# ============================================
+echo -e "${CYAN}[11/$TOTAL_CHECKS] Disk SMART Health${NC}"
+echo "─────────────────────"
+
+if command -v smartctl &>/dev/null; then
+    for disk in /dev/nvme0n1 /dev/sda /dev/sdb; do
+        if [ -b "$disk" ]; then
+            DISK_NAME=$(basename "$disk")
+            HEALTH=$(sudo smartctl -H "$disk" 2>/dev/null | grep -i "overall\|result" | head -1)
+            if echo "$HEALTH" | grep -qi "passed\|ok"; then
+                echo -e "$DISK_NAME: ${GREEN}PASSED${NC}"
+            elif [ -n "$HEALTH" ]; then
+                echo -e "$DISK_NAME: ${RED}$HEALTH${NC}"
+                ISSUES+=("Disk $DISK_NAME SMART health warning")
+                FIXES+=("sudo smartctl -a $disk")
+            fi
+        fi
+    done
+else
+    echo -e "${YELLOW}smartctl not installed (smartmontools)${NC}"
+fi
+echo ""
+
+# ============================================
+# 12. NETWORK STATUS
+# ============================================
+echo -e "${CYAN}[12/$TOTAL_CHECKS] Network Status${NC}"
+echo "─────────────────────"
+
+# Check connectivity
+if ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
+    echo -e "Internet: ${GREEN}connected${NC}"
+else
+    echo -e "Internet: ${RED}no connection${NC}"
+    ISSUES+=("No internet connection")
+    FIXES+=("nmcli device status")
+fi
+
+# DNS
+if ping -c 1 -W 2 google.com &>/dev/null; then
+    echo -e "DNS: ${GREEN}working${NC}"
+else
+    echo -e "DNS: ${YELLOW}not resolving${NC}"
+fi
+
+# Active connections
+ACTIVE_CONN=$(nmcli -t -f NAME,TYPE,DEVICE connection show --active 2>/dev/null | head -3)
+if [ -n "$ACTIVE_CONN" ]; then
+    echo "Active: $(echo "$ACTIVE_CONN" | cut -d: -f1 | tr '\n' ', ' | sed 's/,$//')"
+fi
+echo ""
+
+# ============================================
+# 13. SECURITY CHECK
+# ============================================
+echo -e "${CYAN}[13/$TOTAL_CHECKS] Security${NC}"
+echo "─────────────────────"
+
+# Firewall
+if command -v ufw &>/dev/null; then
+    UFW_STATUS=$(sudo ufw status 2>/dev/null | head -1)
+    if echo "$UFW_STATUS" | grep -q "active"; then
+        echo -e "Firewall (ufw): ${GREEN}active${NC}"
+    else
+        echo -e "Firewall (ufw): ${YELLOW}inactive${NC}"
+        ISSUES+=("UFW firewall is inactive")
+        FIXES+=("sudo ufw enable")
+    fi
+elif command -v firewall-cmd &>/dev/null; then
+    if firewall-cmd --state &>/dev/null; then
+        echo -e "Firewall (firewalld): ${GREEN}active${NC}"
+    else
+        echo -e "Firewall (firewalld): ${YELLOW}inactive${NC}"
+    fi
+else
+    echo "Firewall: not detected"
+fi
+
+# SSH
+if systemctl is-active sshd &>/dev/null; then
+    echo -e "SSH: ${YELLOW}running (port open)${NC}"
+else
+    echo -e "SSH: ${GREEN}not running${NC}"
+fi
+
+# Failed login attempts
+FAILED_LOGINS=$(journalctl -b _SYSTEMD_UNIT=sshd.service 2>/dev/null | grep -c "Failed password" || echo 0)
+if [ "$FAILED_LOGINS" -gt 10 ]; then
+    echo -e "Failed SSH logins: ${RED}$FAILED_LOGINS${NC}"
+    ISSUES+=("$FAILED_LOGINS failed SSH login attempts this boot")
+    FIXES+=("journalctl -b _SYSTEMD_UNIT=sshd.service | grep 'Failed'")
+elif [ "$FAILED_LOGINS" -gt 0 ]; then
+    echo "Failed SSH logins: $FAILED_LOGINS"
+fi
+echo ""
+
+# ============================================
+# 14. BOOT TIME ANALYSIS
+# ============================================
+echo -e "${CYAN}[14/$TOTAL_CHECKS] Boot Time${NC}"
+echo "─────────────────────"
+
+BOOT_TIME=$(systemd-analyze 2>/dev/null | grep "Startup finished" | grep -oP '\d+\.\d+s$' | head -1)
+if [ -n "$BOOT_TIME" ]; then
+    BOOT_SEC=$(echo "$BOOT_TIME" | tr -d 's')
+    BOOT_INT=${BOOT_SEC%.*}
+    if [ "$BOOT_INT" -gt 60 ]; then
+        echo -e "Boot time: ${RED}$BOOT_TIME (slow)${NC}"
+        ISSUES+=("Slow boot time: $BOOT_TIME")
+        FIXES+=("systemd-analyze blame | head -10")
+    elif [ "$BOOT_INT" -gt 30 ]; then
+        echo -e "Boot time: ${YELLOW}$BOOT_TIME${NC}"
+    else
+        echo -e "Boot time: ${GREEN}$BOOT_TIME${NC}"
+    fi
+fi
+
+# Slowest services
+echo "Slowest services:"
+systemd-analyze blame 2>/dev/null | head -3 | sed 's/^/  /'
+echo ""
+
+# ============================================
+# 15. ZOMBIE & STUCK PROCESSES
+# ============================================
+echo -e "${CYAN}[15/$TOTAL_CHECKS] Zombie Processes${NC}"
+echo "─────────────────────"
+
+ZOMBIES=$(ps aux | awk '$8=="Z" {print $0}' | wc -l)
+if [ "$ZOMBIES" -gt 0 ]; then
+    echo -e "Zombies: ${RED}$ZOMBIES found${NC}"
+    ps aux | awk '$8=="Z" {print "  "$11}' | head -5
+    ISSUES+=("$ZOMBIES zombie processes")
+    FIXES+=("ps aux | awk '\$8==\"Z\"'")
+else
+    echo -e "Zombies: ${GREEN}none${NC}"
+fi
+
+# High CPU processes
+HIGH_CPU=$(ps aux --sort=-%cpu | awk 'NR>1 && $3>50 {print $11, $3"%"}' | head -3)
+if [ -n "$HIGH_CPU" ]; then
+    echo -e "High CPU: ${YELLOW}"
+    echo "$HIGH_CPU" | sed 's/^/  /'
+    echo -e "${NC}"
+fi
+echo ""
+
+# ============================================
+# 16. KERNEL MESSAGES
+# ============================================
+echo -e "${CYAN}[16/$TOTAL_CHECKS] Kernel Messages${NC}"
+echo "─────────────────────"
+
+DMESG_ERRORS=$(dmesg --level=err,crit,alert,emerg 2>/dev/null | wc -l)
+if [ "$DMESG_ERRORS" -gt 20 ]; then
+    echo -e "Kernel errors: ${RED}$DMESG_ERRORS${NC}"
+    ISSUES+=("$DMESG_ERRORS kernel errors in dmesg")
+    FIXES+=("dmesg --level=err,crit | tail -20")
+elif [ "$DMESG_ERRORS" -gt 5 ]; then
+    echo -e "Kernel errors: ${YELLOW}$DMESG_ERRORS${NC}"
+else
+    echo -e "Kernel errors: ${GREEN}$DMESG_ERRORS${NC}"
+fi
+
+# Recent hardware errors
+HW_ERRORS=$(dmesg 2>/dev/null | grep -i "hardware error\|mce:\|pcie.*error" | wc -l)
+if [ "$HW_ERRORS" -gt 0 ]; then
+    echo -e "Hardware errors: ${RED}$HW_ERRORS${NC}"
+    ISSUES+=("$HW_ERRORS hardware errors in dmesg")
+    FIXES+=("dmesg | grep -i 'hardware error\\|mce:\\|pcie.*error'")
+fi
+echo ""
+
+# ============================================
+# 17. SYSTEM LOAD
+# ============================================
+echo -e "${CYAN}[17/$TOTAL_CHECKS] System Load${NC}"
+echo "─────────────────────"
+
+LOAD=$(cat /proc/loadavg | awk '{print $1, $2, $3}')
+LOAD_1=$(echo "$LOAD" | awk '{print $1}')
+CPU_COUNT=$(nproc)
+LOAD_INT=${LOAD_1%.*}
+
+echo "Load avg (1/5/15 min): $LOAD"
+echo "CPU cores: $CPU_COUNT"
+
+if [ "$LOAD_INT" -gt "$CPU_COUNT" ]; then
+    echo -e "Status: ${RED}overloaded${NC}"
+    ISSUES+=("System load ($LOAD_1) exceeds CPU count ($CPU_COUNT)")
+    FIXES+=("top -bn1 | head -20")
+elif [ "$LOAD_INT" -gt $((CPU_COUNT / 2)) ]; then
+    echo -e "Status: ${YELLOW}moderate${NC}"
+else
+    echo -e "Status: ${GREEN}low${NC}"
+fi
+echo ""
+
+# ============================================
+# 18. OPEN FILES & CONNECTIONS
+# ============================================
+echo -e "${CYAN}[18/$TOTAL_CHECKS] Open Files & Connections${NC}"
+echo "─────────────────────"
+
+# Open files
+OPEN_FILES=$(cat /proc/sys/fs/file-nr | awk '{print $1}')
+MAX_FILES=$(cat /proc/sys/fs/file-max)
+FILE_PERCENT=$((OPEN_FILES * 100 / MAX_FILES))
+
+echo "Open files: $OPEN_FILES / $MAX_FILES ($FILE_PERCENT%)"
+if [ "$FILE_PERCENT" -gt 80 ]; then
+    echo -e "Status: ${RED}high${NC}"
+    ISSUES+=("Open files at $FILE_PERCENT% of limit")
+    FIXES+=("lsof | wc -l")
+fi
+
+# Network connections
+ESTABLISHED=$(ss -t state established 2>/dev/null | wc -l)
+LISTENING=$(ss -tln 2>/dev/null | wc -l)
+echo "TCP established: $ESTABLISHED"
+echo "TCP listening: $LISTENING"
+echo ""
+
+fi
+# END DEEP CHECKS
 
 # ============================================
 # SUMMARY & FIX OPTIONS
