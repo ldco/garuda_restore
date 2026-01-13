@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Updating installed software tracker...
+When = PostTransaction
+Exec = /usr/bin/runuser -u ldco -- /home/ldco/.local/share/garuda-backup-scripts/install-tracker.sh

@@ -38,14 +38,14 @@ echo ""
 # ============================================================================
 # 1. UPDATE SYSTEM FIRST
 # ============================================================================
-echo "[1/17] Updating system..."
+echo "[1/22] Updating system..."
 sudo pacman -Syu --noconfirm
 echo "   ✓ System updated"
 
 # ============================================================================
 # 2. INSTALL CHAOTIC-AUR (if not present)
 # ============================================================================
-echo "[2/17] Ensuring Chaotic-AUR is configured..."
+echo "[2/22] Ensuring Chaotic-AUR is configured..."
 
 if ! grep -q "chaotic-aur" /etc/pacman.conf 2>/dev/null; then
     echo "   Installing Chaotic-AUR..."
@@ -61,7 +61,7 @@ echo "   ✓ Chaotic-AUR configured"
 # ============================================================================
 # 3. INSTALL PARU (AUR helper)
 # ============================================================================
-echo "[3/17] Ensuring paru is installed..."
+echo "[3/22] Ensuring paru is installed..."
 
 if ! command -v paru &> /dev/null; then
     echo "   Installing paru..."
@@ -73,32 +73,104 @@ fi
 echo "   ✓ Paru installed"
 
 # ============================================================================
-# 4. INSTALL PACKAGES
+# 4. INSTALL ALL SOFTWARE (pacman, AUR, npm, pip, flatpak, git repos)
 # ============================================================================
-echo "[4/17] Installing packages (this may take a while)..."
+echo "[4/22] Installing all software (this may take a while)..."
 
-# Install native packages from official repos
-echo "   Installing native packages..."
-if [ -f "$BACKUP_DIR/packages/native-packages.txt" ]; then
+# Use tracker data if available, otherwise fall back to legacy
+TRACKER_DATA="$BACKUP_DIR/installed-software"
+
+# --- PACMAN NATIVE PACKAGES ---
+echo "   [1/6] Installing native packages (pacman)..."
+if [ -f "$TRACKER_DATA/pacman-explicit.txt" ]; then
+    NATIVE_PKGS=$(cat "$TRACKER_DATA/pacman-explicit.txt" | tr '\n' ' ')
+    sudo pacman -S --needed --noconfirm $NATIVE_PKGS 2>&1 | grep -v "warning:" || true
+elif [ -f "$BACKUP_DIR/packages/native-packages.txt" ]; then
     NATIVE_PKGS=$(cat "$BACKUP_DIR/packages/native-packages.txt" | awk '{print $1}' | tr '\n' ' ')
     sudo pacman -S --needed --noconfirm $NATIVE_PKGS 2>&1 | grep -v "warning:" || true
 fi
+echo "   ✓ Native packages done"
 
-# Install AUR packages via paru
-echo "   Installing AUR packages..."
-if [ -f "$BACKUP_DIR/packages/aur-packages.txt" ]; then
-    while IFS= read -r line; do
-        pkg=$(echo "$line" | awk '{print $1}')
-        echo "   Installing: $pkg"
-        paru -S --needed --noconfirm "$pkg" 2>/dev/null || echo "   ⚠ Could not install $pkg"
-    done < "$BACKUP_DIR/packages/aur-packages.txt"
+# --- AUR PACKAGES ---
+echo "   [2/6] Installing AUR packages (paru)..."
+AUR_FILE="$TRACKER_DATA/aur-packages.txt"
+[ ! -f "$AUR_FILE" ] && AUR_FILE="$BACKUP_DIR/packages/aur-packages.txt"
+if [ -f "$AUR_FILE" ]; then
+    while IFS= read -r pkg; do
+        [ -z "$pkg" ] && continue
+        pkg=$(echo "$pkg" | awk '{print $1}')
+        echo "     Installing: $pkg"
+        paru -S --needed --noconfirm "$pkg" 2>/dev/null || echo "     ⚠ Could not install $pkg"
+    done < "$AUR_FILE"
 fi
-echo "   ✓ Packages installed"
+echo "   ✓ AUR packages done"
+
+# --- NPM GLOBAL PACKAGES ---
+echo "   [3/6] Installing global npm packages..."
+if [ -f "$TRACKER_DATA/npm-global.txt" ] && command -v npm &>/dev/null; then
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        # Extract package name (format: package@version)
+        pkg=$(echo "$line" | cut -d'@' -f1)
+        # Skip npm itself and built-in packages
+        [[ "$pkg" == "npm" || "$pkg" == "corepack" ]] && continue
+        echo "     Installing: $pkg"
+        sudo npm install -g "$pkg" 2>/dev/null || true
+    done < "$TRACKER_DATA/npm-global.txt"
+    echo "   ✓ NPM packages done"
+else
+    echo "   ⚠ No npm packages to restore or npm not installed"
+fi
+
+# --- PIP USER PACKAGES ---
+echo "   [4/6] Installing pip user packages..."
+if [ -f "$TRACKER_DATA/pip-user.txt" ] && command -v pip &>/dev/null; then
+    pip install --user -r "$TRACKER_DATA/pip-user.txt" 2>/dev/null || true
+    echo "   ✓ PIP packages done"
+else
+    echo "   ⚠ No pip packages to restore"
+fi
+
+# --- FLATPAK APPS ---
+echo "   [5/6] Installing Flatpak apps..."
+if [ -f "$TRACKER_DATA/flatpak.txt" ] && command -v flatpak &>/dev/null; then
+    while IFS= read -r app; do
+        [ -z "$app" ] && continue
+        echo "     Installing: $app"
+        flatpak install -y flathub "$app" 2>/dev/null || true
+    done < "$TRACKER_DATA/flatpak.txt"
+    echo "   ✓ Flatpak apps done"
+else
+    echo "   ⚠ No Flatpak apps to restore"
+fi
+
+# --- GIT REPOS ---
+echo "   [6/6] Cloning git repositories..."
+if [ -f "$TRACKER_DATA/git-repos.txt" ]; then
+    while IFS='|' read -r repo_dir remote_url; do
+        # Skip comments and empty lines
+        [[ "$repo_dir" =~ ^# ]] && continue
+        [ -z "$repo_dir" ] && continue
+        [ "$remote_url" == "no-remote" ] && continue
+
+        if [ ! -d "$repo_dir" ]; then
+            echo "     Cloning: $repo_dir"
+            git clone "$remote_url" "$repo_dir" 2>/dev/null || echo "     ⚠ Failed to clone $repo_dir"
+        else
+            echo "     Already exists: $repo_dir"
+        fi
+    done < "$TRACKER_DATA/git-repos.txt"
+    echo "   ✓ Git repos done"
+else
+    echo "   ⚠ No git repos to restore"
+fi
+
+echo "   ✓ All software installed"
 
 # ============================================================================
 # 5. RESTORE FONTS
 # ============================================================================
-echo "[5/17] Restoring fonts..."
+echo "[5/22] Restoring fonts..."
 
 if [ -d "$BACKUP_DIR/.fonts" ]; then
     mkdir -p "$HOME/.fonts"
@@ -112,7 +184,7 @@ fi
 # ============================================================================
 # 6. RESTORE ICONS AND THEMES
 # ============================================================================
-echo "[6/17] Restoring icons and themes..."
+echo "[6/22] Restoring icons and themes..."
 
 [ -d "$BACKUP_DIR/.icons" ] && cp -r "$BACKUP_DIR/.icons" "$HOME/"
 [ -d "$BACKUP_DIR/.themes" ] && cp -r "$BACKUP_DIR/.themes" "$HOME/"
@@ -122,7 +194,7 @@ echo "   ✓ Icons and themes restored"
 # ============================================================================
 # 7. RESTORE ~/.config (ALL settings)
 # ============================================================================
-echo "[7/17] Restoring ALL application and KDE settings..."
+echo "[7/22] Restoring ALL application and KDE settings..."
 
 if [ -d "$BACKUP_DIR/config" ]; then
     # Backup current config first
@@ -149,7 +221,7 @@ fi
 # ============================================================================
 # 8. RESTORE ~/.local/share (KDE data, Konsole profiles, etc.)
 # ============================================================================
-echo "[8/17] Restoring KDE data and profiles..."
+echo "[8/22] Restoring KDE data and profiles..."
 
 if [ -d "$BACKUP_DIR/local-share" ]; then
     mkdir -p "$HOME/.local/share"
@@ -177,7 +249,7 @@ fi
 # ============================================================================
 # 9. RESTORE SSH KEYS AND SECURITY
 # ============================================================================
-echo "[9/17] Restoring SSH keys, GPG keys, security..."
+echo "[9/22] Restoring SSH keys, GPG keys, security..."
 
 if [ -d "$BACKUP_DIR/security/.ssh" ]; then
     cp -r "$BACKUP_DIR/security/.ssh" "$HOME/"
@@ -200,7 +272,7 @@ echo "   ✓ Security credentials restored"
 # ============================================================================
 # 10. RESTORE WALLPAPERS
 # ============================================================================
-echo "[10/17] Restoring wallpapers..."
+echo "[10/22] Restoring wallpapers..."
 
 if [ -d "$BACKUP_DIR/wallpapers" ]; then
     mkdir -p "$HOME/Pictures"
@@ -213,7 +285,7 @@ fi
 # ============================================================================
 # 11. RESTORE DOTFILES AND GIT CONFIG
 # ============================================================================
-echo "[11/17] Restoring dotfiles and git configuration..."
+echo "[11/22] Restoring dotfiles and git configuration..."
 
 if [ -d "$BACKUP_DIR/dotfiles" ]; then
     for file in "$BACKUP_DIR/dotfiles"/*; do
@@ -240,7 +312,7 @@ fi
 # ============================================================================
 # 12. RESTORE NETWORK/VPN CONNECTIONS
 # ============================================================================
-echo "[12/17] Restoring network and VPN connections..."
+echo "[12/22] Restoring network and VPN connections..."
 
 if [ -d "$BACKUP_DIR/networks/system-connections" ]; then
     sudo mkdir -p /etc/NetworkManager/system-connections
@@ -259,7 +331,7 @@ echo "   ✓ VPN configurations restored"
 # ============================================================================
 # 13. RESTORE BLENDER ADDONS
 # ============================================================================
-echo "[13/17] Restoring Blender addons..."
+echo "[13/22] Restoring Blender addons..."
 
 if [ -d "$BACKUP_DIR/blender" ]; then
     mkdir -p "$HOME/.config/blender"
@@ -272,7 +344,7 @@ fi
 # ============================================================================
 # 14. RESTORE APPLICATION DATA (GIMP, Krita, etc.)
 # ============================================================================
-echo "[14/17] Restoring application plugins..."
+echo "[14/22] Restoring application plugins..."
 
 [ -d "$BACKUP_DIR/app-data/.gimp-2.10" ] && cp -r "$BACKUP_DIR/app-data/.gimp-2.10" "$HOME/"
 [ -d "$BACKUP_DIR/app-data/GIMP" ] && cp -r "$BACKUP_DIR/app-data/GIMP" "$HOME/.config/"
@@ -292,7 +364,7 @@ echo "   ✓ Application plugins restored"
 # ============================================================================
 # 15. RESTORE DOCKER DATA
 # ============================================================================
-echo "[15/18] Restoring Docker data..."
+echo "[15/22] Restoring Docker data..."
 
 if [ -d "$BACKUP_DIR/docker" ]; then
     # Docker client config
@@ -330,7 +402,7 @@ fi
 # ============================================================================
 # 16. INSTALL & RESTORE DEVELOPMENT ENVIRONMENTS
 # ============================================================================
-echo "[16/19] Installing development tools and restoring configs..."
+echo "[16/22] Installing development tools and restoring configs..."
 
 if [ -d "$BACKUP_DIR/dev-envs" ]; then
     # Restore config files first
@@ -370,6 +442,19 @@ if [ -d "$BACKUP_DIR/dev-envs" ]; then
                 nvm install --lts 2>/dev/null || true
             fi
             echo "   ✓ Node.js installed"
+
+            # Reinstall global npm packages
+            if [ -f "$BACKUP_DIR/dev-envs/npm-global-packages.txt" ]; then
+                echo "   → Installing global npm packages..."
+                while IFS= read -r pkg; do
+                    [ -z "$pkg" ] && continue
+                    # Skip npm itself and node-gyp (comes with npm)
+                    [[ "$pkg" == "npm" || "$pkg" == "node-gyp" || "$pkg" == "nopt" || "$pkg" == "semver" ]] && continue
+                    echo "     Installing: $pkg"
+                    npm install -g "$pkg" 2>/dev/null || true
+                done < "$BACKUP_DIR/dev-envs/npm-global-packages.txt"
+                echo "   ✓ Global npm packages installed"
+            fi
         fi
 
         # Rust (via rustup)
@@ -433,9 +518,214 @@ else
 fi
 
 # ============================================================================
-# 17. RESTORE ICC COLOR PROFILES
+# 17. RESTORE AI TOOLS (ComfyUI, Fooocus) - FULL SETUP WITH MODELS
 # ============================================================================
-echo "[17/19] Restoring ICC color profiles..."
+echo "[17/22] Setting up AI tools (ComfyUI, Fooocus)..."
+echo "   This will download ~75GB of models. Skip with Ctrl+C if not needed."
+echo ""
+
+if [ -d "$BACKUP_DIR/ai-tools" ]; then
+
+    # Claude Code config (always restore - no prompt needed)
+    if [ -d "$BACKUP_DIR/ai-tools/claude-code" ]; then
+        echo "   Restoring Claude Code configuration..."
+        mkdir -p "$HOME/.claude"
+
+        [ -f "$BACKUP_DIR/ai-tools/claude-code/.claude.json" ] && cp "$BACKUP_DIR/ai-tools/claude-code/.claude.json" "$HOME/"
+        [ -f "$BACKUP_DIR/ai-tools/claude-code/settings.json" ] && cp "$BACKUP_DIR/ai-tools/claude-code/settings.json" "$HOME/.claude/"
+        [ -f "$BACKUP_DIR/ai-tools/claude-code/.credentials.json" ] && cp "$BACKUP_DIR/ai-tools/claude-code/.credentials.json" "$HOME/.claude/"
+
+        [ -d "$BACKUP_DIR/ai-tools/claude-code/commands" ] && cp -r "$BACKUP_DIR/ai-tools/claude-code/commands" "$HOME/.claude/"
+        [ -d "$BACKUP_DIR/ai-tools/claude-code/templates" ] && cp -r "$BACKUP_DIR/ai-tools/claude-code/templates" "$HOME/.claude/"
+        [ -d "$BACKUP_DIR/ai-tools/claude-code/roles" ] && cp -r "$BACKUP_DIR/ai-tools/claude-code/roles" "$HOME/.claude/"
+        [ -d "$BACKUP_DIR/ai-tools/claude-code/scripts" ] && cp -r "$BACKUP_DIR/ai-tools/claude-code/scripts" "$HOME/.claude/"
+        [ -d "$BACKUP_DIR/ai-tools/claude-code/knowledge" ] && cp -r "$BACKUP_DIR/ai-tools/claude-code/knowledge" "$HOME/.claude/"
+
+        echo "   ✓ Claude Code config restored"
+    fi
+
+    read -p "   Install ComfyUI + Fooocus with all AI models? [Y/n] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+
+        # Install pyenv if needed
+        if ! command -v pyenv &>/dev/null; then
+            echo "   Installing pyenv..."
+            paru -S pyenv --noconfirm 2>/dev/null || sudo pacman -S pyenv --noconfirm
+        fi
+
+        # Setup pyenv in current shell
+        export PYENV_ROOT="$HOME/.pyenv"
+        [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+        eval "$(pyenv init - bash 2>/dev/null)" || true
+
+        # Install Python 3.10 for Fooocus
+        if ! pyenv versions 2>/dev/null | grep -q "3.10"; then
+            echo "   Installing Python 3.10.14 (required for Fooocus)..."
+            pyenv install 3.10.14
+        fi
+
+        # Ensure pip is installed
+        if ! command -v pip &>/dev/null; then
+            sudo pacman -S python-pip --noconfirm
+        fi
+
+        # ── COMFYUI SETUP ──
+        echo "   Setting up ComfyUI..."
+        if [ ! -d "$HOME/ComfyUI" ]; then
+            git clone https://github.com/Comfy-Org/ComfyUI.git "$HOME/ComfyUI"
+        fi
+
+        cd "$HOME/ComfyUI"
+        if [ ! -d "venv" ]; then
+            python -m venv venv
+        fi
+        source venv/bin/activate
+        pip install -q torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126
+        pip install -q -r requirements.txt
+        pip install -q -r manager_requirements.txt 2>/dev/null || true
+
+        # Install custom nodes from backup list
+        if [ -f "$BACKUP_DIR/ai-tools/comfyui/custom-nodes.txt" ]; then
+            echo "   Installing custom nodes..."
+            cd "$HOME/ComfyUI/custom_nodes"
+            while IFS='|' read -r node_name node_url; do
+                [[ "$node_name" =~ ^#.*$ ]] && continue
+                [ -z "$node_url" ] && continue
+                if [ ! -d "$node_name" ]; then
+                    echo "      Cloning $node_name..."
+                    git clone "$node_url" "$node_name" 2>/dev/null || true
+                fi
+            done < "$BACKUP_DIR/ai-tools/comfyui/custom-nodes.txt"
+
+            # Install requirements for custom nodes
+            cd "$HOME/ComfyUI"
+            source venv/bin/activate
+            for req in custom_nodes/*/requirements.txt; do
+                [ -f "$req" ] && pip install -q -r "$req" 2>/dev/null || true
+            done
+        fi
+
+        # Restore ComfyUI config
+        [ -f "$BACKUP_DIR/ai-tools/comfyui/MODELS.md" ] && cp "$BACKUP_DIR/ai-tools/comfyui/MODELS.md" "$HOME/ComfyUI/"
+        [ -f "$BACKUP_DIR/ai-tools/comfyui/extra_model_paths.yaml" ] && cp "$BACKUP_DIR/ai-tools/comfyui/extra_model_paths.yaml" "$HOME/ComfyUI/"
+        [ -d "$BACKUP_DIR/ai-tools/comfyui/input" ] && cp -r "$BACKUP_DIR/ai-tools/comfyui/input/"* "$HOME/ComfyUI/input/" 2>/dev/null || true
+
+        echo "   ✓ ComfyUI installed"
+
+        # ── FOOOCUS SETUP ──
+        echo "   Setting up Fooocus..."
+        if [ ! -d "$HOME/Fooocus" ]; then
+            git clone https://github.com/lllyasviel/Fooocus.git "$HOME/Fooocus"
+        fi
+
+        cd "$HOME/Fooocus"
+        if [ ! -d "venv" ]; then
+            ~/.pyenv/versions/3.10.14/bin/python -m venv venv
+        fi
+        source venv/bin/activate
+        pip install -q torch torchvision --extra-index-url https://download.pytorch.org/whl/cu121
+        pip install -q -r requirements_versions.txt
+
+        # Restore Fooocus config
+        [ -f "$BACKUP_DIR/ai-tools/fooocus/config.txt" ] && cp "$BACKUP_DIR/ai-tools/fooocus/config.txt" "$HOME/Fooocus/"
+        [ -d "$BACKUP_DIR/ai-tools/fooocus/presets" ] && cp -r "$BACKUP_DIR/ai-tools/fooocus/presets" "$HOME/Fooocus/"
+
+        echo "   ✓ Fooocus installed"
+
+        # ── DOWNLOAD MODELS (~75GB) ──
+        echo ""
+        echo "   Downloading AI models (~75GB total)..."
+        echo "   This will take 1-2 hours. Downloads can be resumed if interrupted."
+        echo ""
+
+        mkdir -p "$HOME/ComfyUI/models"/{checkpoints,diffusion_models,text_encoders,vae,loras}
+        cd "$HOME/ComfyUI/models"
+
+        # Image models
+        echo "   ── Image Models ──"
+        [ ! -f "checkpoints/flux1-schnell-fp8.safetensors" ] && \
+            wget -c -q --show-progress -O "checkpoints/flux1-schnell-fp8.safetensors" \
+            "https://huggingface.co/Comfy-Org/flux1-schnell/resolve/main/flux1-schnell-fp8.safetensors"
+
+        [ ! -f "checkpoints/sd_xl_base_1.0.safetensors" ] && \
+            wget -c -q --show-progress -O "checkpoints/sd_xl_base_1.0.safetensors" \
+            "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"
+
+        [ ! -f "diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors" ] && \
+            wget -c -q --show-progress -O "diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors" \
+            "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors"
+
+        [ ! -f "text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" ] && \
+            wget -c -q --show-progress -O "text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" \
+            "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors"
+
+        [ ! -f "vae/qwen_image_vae.safetensors" ] && \
+            wget -c -q --show-progress -O "vae/qwen_image_vae.safetensors" \
+            "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors"
+
+        [ ! -f "loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" ] && \
+            wget -c -q --show-progress -O "loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" \
+            "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors"
+
+        # Video models (Wan 2.2)
+        echo "   ── Video Models (Wan 2.2) ──"
+        [ ! -f "diffusion_models/wan2.2_ti2v_5B_fp16.safetensors" ] && \
+            wget -c -q --show-progress -O "diffusion_models/wan2.2_ti2v_5B_fp16.safetensors" \
+            "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"
+
+        [ ! -f "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" ] && \
+            wget -c -q --show-progress -O "text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
+            "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+        [ ! -f "vae/wan2.2_vae.safetensors" ] && \
+            wget -c -q --show-progress -O "vae/wan2.2_vae.safetensors" \
+            "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors"
+
+        echo ""
+        echo "   ✓ AI models downloaded"
+
+        # Restore desktop launchers
+        if [ -d "$BACKUP_DIR/ai-tools/launchers" ]; then
+            mkdir -p "$HOME/.local/share/applications"
+            cp "$BACKUP_DIR/ai-tools/launchers/"*.desktop "$HOME/.local/share/applications/" 2>/dev/null || true
+            update-desktop-database "$HOME/.local/share/applications/" 2>/dev/null || true
+            echo "   ✓ Desktop launchers restored"
+        fi
+
+        echo "   ✓ AI tools setup complete"
+    fi
+else
+    echo "   No AI tools backup found, skipping"
+fi
+
+# ============================================================================
+# 18. RESTORE BROWSERS (Firefox, LibreWolf)
+# ============================================================================
+echo "[18/22] Restoring browser profiles..."
+
+# Firefox / Mozilla (not in ~/.config, needs separate restore)
+if [ -d "$BACKUP_DIR/browsers/mozilla" ]; then
+    mkdir -p "$HOME/.mozilla"
+    rsync -a --info=progress2 "$BACKUP_DIR/browsers/mozilla/" "$HOME/.mozilla/"
+    echo "   ✓ Firefox/Mozilla restored"
+fi
+
+# LibreWolf
+if [ -d "$BACKUP_DIR/browsers/librewolf" ]; then
+    mkdir -p "$HOME/.librewolf"
+    rsync -a --info=progress2 "$BACKUP_DIR/browsers/librewolf/" "$HOME/.librewolf/"
+    echo "   ✓ LibreWolf restored"
+fi
+
+# Chromium-based browsers are restored with ~/.config in section 6
+echo "   Note: Chrome/Brave/Chromium restored with ~/.config"
+echo "   ✓ Browser profiles restored"
+
+# ============================================================================
+# 19. RESTORE ICC COLOR PROFILES
+# ============================================================================
+echo "[19/22] Restoring ICC color profiles..."
 
 if [ -d "$BACKUP_DIR/icc-profiles" ]; then
     mkdir -p "$HOME/.local/share/icc"
@@ -444,9 +734,9 @@ if [ -d "$BACKUP_DIR/icc-profiles" ]; then
 fi
 
 # ============================================================================
-# 16. ENABLE SYSTEMD SERVICES + RESTORE BACKUP TIMER
+# 19. ENABLE SYSTEMD SERVICES + RESTORE BACKUP TIMER
 # ============================================================================
-echo "[18/19] Enabling systemd services and restoring backup timer..."
+echo "[20/22] Enabling systemd services and restoring backup timer..."
 
 # Restore backup service and timer
 if [ -d "$BACKUP_DIR/systemd/user-units" ]; then
@@ -483,10 +773,10 @@ fi
 echo "   ✓ Systemd services enabled"
 
 # ============================================================================
-# 17. OPTIONAL: RESTORE SYSTEM CONFIGS
+# 20. OPTIONAL: RESTORE SYSTEM CONFIGS
 # ============================================================================
 echo ""
-read -p "[19/19] Restore system configs (samba, grub, network, docker)? [y/N] " -n 1 -r
+read -p "[21/22] Restore system configs (samba, grub, network, docker)? [y/N] " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Restoring system configs..."
@@ -506,10 +796,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # ============================================================================
-# 20. FINAL SYSTEM UPDATE
+# 21. FINAL SYSTEM UPDATE
 # ============================================================================
 echo ""
-echo "[20/20] Running final system update..."
+echo "[22/22] Running final system update..."
 echo "   Updating all packages to latest versions..."
 
 # Full system update with paru (includes AUR)
@@ -554,6 +844,11 @@ echo "  ✓ GPG keys (~/.gnupg)"
 echo "  ✓ Network/VPN connections (WiFi, WireGuard, OpenVPN)"
 echo "  ✓ Docker (config, volumes, compose files)"
 echo "  ✓ Development tools (Node.js, Rust, Go, Python/Conda, etc.)"
+echo "  ✓ AI Tools: ComfyUI + Fooocus (with ~75GB models)"
+echo "      - FLUX.1 Schnell (fast photorealism)"
+echo "      - SDXL 1.0 (artistic, LoRA ecosystem)"
+echo "      - Qwen-Image-2512 (best quality, text rendering)"
+echo "      - Wan 2.2 (video generation)"
 echo "  ✓ Clipboard history"
 echo "  ✓ Wallpapers"
 echo "  ✓ Fonts and ICC color profiles"
@@ -579,5 +874,12 @@ echo "  • Your system should look exactly like before!"
 echo "  • Daily backups will run automatically"
 echo "  • If panels don't appear correctly:"
 echo "      kquitapp6 plasmashell && kstart6 plasmashell"
+echo ""
+echo "To start AI tools:"
+echo "  ComfyUI:  cd ~/ComfyUI && source venv/bin/activate && python main.py"
+echo "            Open: http://127.0.0.1:8188"
+echo ""
+echo "  Fooocus:  cd ~/Fooocus && source venv/bin/activate && python entry_with_update.py"
+echo "            Open: http://127.0.0.1:7865"
 echo ""
 

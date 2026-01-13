@@ -1,0 +1,12 @@
+[Unit]
+Description=Track installed software from all package managers
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/.local/share/garuda-backup-scripts/install-tracker.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

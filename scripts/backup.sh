@@ -91,10 +91,24 @@ echo "Backup directory: $BACKUP_DIR"
 echo ""
 
 # ============================================================================
-# 1. PACKAGE LISTS
+# 1. INSTALLED SOFTWARE TRACKER (all package managers)
 # ============================================================================
-echo "[1/14] Backing up package lists..."
+echo "[1/18] Running install tracker (pacman, npm, pip, git, flatpak...)..."
 
+# Run the comprehensive install tracker
+TRACKER_SCRIPT="$SCRIPT_DIR/install-tracker.sh"
+if [ -f "$TRACKER_SCRIPT" ]; then
+    bash "$TRACKER_SCRIPT"
+fi
+
+# Copy tracker output to backup
+TRACKER_DIR="$HOME/.local/share/garuda-backup/installed"
+if [ -d "$TRACKER_DIR" ]; then
+    cp -r "$TRACKER_DIR" "$BACKUP_DIR/installed-software"
+    echo "   ✓ Install tracker data copied"
+fi
+
+# Also keep the legacy package lists for compatibility
 pacman -Qe > "$BACKUP_DIR/packages/explicitly-installed.txt"
 pacman -Qm > "$BACKUP_DIR/packages/aur-packages.txt"
 pacman -Qen > "$BACKUP_DIR/packages/native-packages.txt"
@@ -105,7 +119,7 @@ echo "   ✓ Package lists saved ($(wc -l < "$BACKUP_DIR/packages/explicitly-ins
 # ============================================================================
 # 2. SYSTEMD SERVICES + BACKUP SERVICE ITSELF
 # ============================================================================
-echo "[2/14] Backing up systemd services (including backup timer)..."
+echo "[2/18] Backing up systemd services (including backup timer)..."
 
 systemctl list-unit-files --state=enabled 2>/dev/null | grep "enabled" | awk '{print $1}' > "$BACKUP_DIR/systemd/system-services.txt"
 systemctl --user list-unit-files --state=enabled 2>/dev/null | grep "enabled" | awk '{print $1}' > "$BACKUP_DIR/systemd/user-services.txt"
@@ -124,7 +138,7 @@ echo "   ✓ Systemd services + backup scripts saved"
 # ============================================================================
 # 3. ENTIRE ~/.config DIRECTORY (ALL app and KDE settings)
 # ============================================================================
-echo "[3/14] Backing up ENTIRE ~/.config directory..."
+echo "[3/18] Backing up ENTIRE ~/.config directory..."
 echo "   This includes ALL KDE panels, themes, app settings..."
 
 # Exclude ONLY caches - keep everything else including browser data!
@@ -147,7 +161,7 @@ echo "   ✓ ~/.config backed up (with browser profiles!)"
 # ============================================================================
 # 4. ~/.local/share (KDE data, themes, icons, klipper clipboard, etc.)
 # ============================================================================
-echo "[4/14] Backing up ~/.local/share (KDE data, clipboard, app data)..."
+echo "[4/18] Backing up ~/.local/share (KDE data, clipboard, app data)..."
 
 # Create selective backup of important directories
 mkdir -p "$BACKUP_DIR/local-share"
@@ -208,7 +222,7 @@ echo "   ✓ ~/.local/share backed up (with clipboard history!)"
 # ============================================================================
 # 5. SSH KEYS, GPG KEYS, SECURITY
 # ============================================================================
-echo "[5/14] Backing up SSH keys, GPG keys, security..."
+echo "[5/18] Backing up SSH keys, GPG keys, security..."
 
 mkdir -p "$BACKUP_DIR/security"
 
@@ -232,7 +246,7 @@ echo "   ✓ Security credentials backed up"
 # ============================================================================
 # 6. WALLPAPERS
 # ============================================================================
-echo "[6/14] Backing up wallpapers..."
+echo "[6/18] Backing up wallpapers..."
 
 # Find wallpapers referenced in plasma config
 WALLPAPER_FILES=$(grep -h "Image=" "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc" 2>/dev/null | grep -v "^#" | cut -d'=' -f2 | sort -u)
@@ -252,7 +266,7 @@ echo "   ✓ Wallpapers backed up"
 # ============================================================================
 # 7. FONTS AND ICC PROFILES
 # ============================================================================
-echo "[7/14] Backing up fonts and ICC color profiles..."
+echo "[7/18] Backing up fonts and ICC color profiles..."
 
 # Fonts
 if [ -d "$HOME/.fonts" ]; then
@@ -279,7 +293,7 @@ echo "   ✓ Fonts and ICC profiles backed up"
 # ============================================================================
 # 8. ICONS AND THEMES
 # ============================================================================
-echo "[8/14] Backing up user icons and themes..."
+echo "[8/18] Backing up user icons and themes..."
 
 [ -d "$HOME/.icons" ] && cp -r "$HOME/.icons" "$BACKUP_DIR/"
 [ -d "$HOME/.themes" ] && cp -r "$HOME/.themes" "$BACKUP_DIR/"
@@ -290,7 +304,7 @@ echo "   ✓ Icons and themes backed up"
 # ============================================================================
 # 9. DOTFILES AND GIT CONFIG
 # ============================================================================
-echo "[9/14] Backing up dotfiles and git configuration..."
+echo "[9/18] Backing up dotfiles and git configuration..."
 
 mkdir -p "$BACKUP_DIR/dotfiles"
 
@@ -339,7 +353,7 @@ echo "   ✓ Dotfiles and git config backed up"
 # ============================================================================
 # 10. NETWORK/VPN CONNECTIONS (requires sudo)
 # ============================================================================
-echo "[10/14] Backing up network and VPN connections..."
+echo "[10/18] Backing up network and VPN connections..."
 
 # Refresh sudo credentials (extend timeout)
 sudo -v 2>/dev/null || true
@@ -378,7 +392,7 @@ echo "   ✓ Network/VPN connections backed up"
 # ============================================================================
 # 11. BLENDER PLUGINS AND ADDONS
 # ============================================================================
-echo "[11/14] Backing up Blender addons and plugins..."
+echo "[11/18] Backing up Blender addons and plugins..."
 
 mkdir -p "$BACKUP_DIR/blender"
 
@@ -398,7 +412,7 @@ echo "   ✓ Blender addons backed up"
 # ============================================================================
 # 12. APPLICATION DATA (GIMP, Krita, Inkscape plugins, etc.)
 # ============================================================================
-echo "[12/14] Backing up application plugins and data..."
+echo "[12/18] Backing up application plugins and data..."
 
 mkdir -p "$BACKUP_DIR/app-data"
 
@@ -422,7 +436,7 @@ echo "   ✓ Application plugins backed up"
 # ============================================================================
 # 13. DOCKER DATA
 # ============================================================================
-echo "[13/15] Backing up Docker data..."
+echo "[13/18] Backing up Docker data..."
 
 mkdir -p "$BACKUP_DIR/docker"
 
@@ -458,7 +472,7 @@ echo "   ✓ Docker data backed up"
 # ============================================================================
 # 14. DEVELOPMENT ENVIRONMENTS (CONFIG FILES ONLY - caches are reinstallable)
 # ============================================================================
-echo "[14/16] Backing up development environment configs..."
+echo "[14/18] Backing up development environment configs..."
 
 mkdir -p "$BACKUP_DIR/dev-envs"
 
@@ -466,13 +480,18 @@ mkdir -p "$BACKUP_DIR/dev-envs"
 DEV_TOOLS_FILE="$BACKUP_DIR/dev-envs/installed-tools.txt"
 > "$DEV_TOOLS_FILE"
 
-# Node.js / NPM / Yarn - CONFIG ONLY (not .npm cache or .nvm versions)
+# Node.js / NPM / Yarn - CONFIG + GLOBAL PACKAGES LIST
 [ -f "$HOME/.npmrc" ] && cp "$HOME/.npmrc" "$BACKUP_DIR/dev-envs/" && echo "nodejs" >> "$DEV_TOOLS_FILE"
 [ -f "$HOME/.yarnrc" ] && cp "$HOME/.yarnrc" "$BACKUP_DIR/dev-envs/"
 [ -f "$HOME/.yarnrc.yml" ] && cp "$HOME/.yarnrc.yml" "$BACKUP_DIR/dev-envs/"
 # Save current Node version for reinstall
 command -v node &>/dev/null && node -v > "$BACKUP_DIR/dev-envs/node-version.txt"
-echo "   ✓ Node.js/NPM/Yarn configs"
+# Save global npm packages list (for reinstall)
+if command -v npm &>/dev/null; then
+    npm list -g --depth=0 --json > "$BACKUP_DIR/dev-envs/npm-global-packages.json" 2>/dev/null || true
+    npm list -g --depth=0 | tail -n +2 | awk '{print $2}' | cut -d'@' -f1 > "$BACKUP_DIR/dev-envs/npm-global-packages.txt" 2>/dev/null || true
+fi
+echo "   ✓ Node.js/NPM/Yarn configs + global packages list"
 
 # Python / Conda / Pip - CONFIG ONLY (not envs or caches)
 [ -f "$HOME/.condarc" ] && cp "$HOME/.condarc" "$BACKUP_DIR/dev-envs/" && echo "conda" >> "$DEV_TOOLS_FILE"
@@ -521,7 +540,7 @@ echo "   ✓ Development configs backed up (caches excluded - will reinstall on 
 # ============================================================================
 # 15. SYSTEM CONFIGS (sudo should already be authenticated)
 # ============================================================================
-echo "[15/16] Backing up system configurations..."
+echo "[15/18] Backing up system configurations..."
 
 # Refresh sudo credentials
 sudo -v 2>/dev/null || true
@@ -550,9 +569,158 @@ sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/system/" 2>/dev/null || true
 echo "   ✓ System configs backed up"
 
 # ============================================================================
-# 16. CREATE RESTORE SCRIPT AND ARCHIVE
+# 16. AI TOOLS (ComfyUI, Fooocus, Claude Code) - CONFIG ONLY, NOT MODELS
 # ============================================================================
-echo "[16/16] Creating backup archive..."
+echo "[16/18] Backing up AI tools configuration (ComfyUI, Fooocus, Claude Code)..."
+
+mkdir -p "$BACKUP_DIR/ai-tools"
+
+# Claude Code - global config, commands, templates, settings
+if [ -d "$HOME/.claude" ] || [ -f "$HOME/.claude.json" ]; then
+    mkdir -p "$BACKUP_DIR/ai-tools/claude-code"
+
+    # Main config file
+    [ -f "$HOME/.claude.json" ] && cp "$HOME/.claude.json" "$BACKUP_DIR/ai-tools/claude-code/"
+
+    # Settings and credentials (but NOT cache/debug/telemetry)
+    [ -f "$HOME/.claude/settings.json" ] && cp "$HOME/.claude/settings.json" "$BACKUP_DIR/ai-tools/claude-code/"
+    [ -f "$HOME/.claude/.credentials.json" ] && cp "$HOME/.claude/.credentials.json" "$BACKUP_DIR/ai-tools/claude-code/"
+
+    # Custom commands, templates, roles, scripts
+    [ -d "$HOME/.claude/commands" ] && cp -r "$HOME/.claude/commands" "$BACKUP_DIR/ai-tools/claude-code/"
+    [ -d "$HOME/.claude/templates" ] && cp -r "$HOME/.claude/templates" "$BACKUP_DIR/ai-tools/claude-code/"
+    [ -d "$HOME/.claude/roles" ] && cp -r "$HOME/.claude/roles" "$BACKUP_DIR/ai-tools/claude-code/"
+    [ -d "$HOME/.claude/scripts" ] && cp -r "$HOME/.claude/scripts" "$BACKUP_DIR/ai-tools/claude-code/"
+    [ -d "$HOME/.claude/knowledge" ] && cp -r "$HOME/.claude/knowledge" "$BACKUP_DIR/ai-tools/claude-code/"
+
+    echo "   ✓ Claude Code config backed up"
+fi
+
+# ComfyUI - backup config, custom nodes list, workflows (NOT models ~70GB)
+if [ -d "$HOME/ComfyUI" ]; then
+    mkdir -p "$BACKUP_DIR/ai-tools/comfyui"
+
+    # Save list of installed custom nodes (git repos to re-clone)
+    if [ -d "$HOME/ComfyUI/custom_nodes" ]; then
+        echo "# ComfyUI Custom Nodes - git clone these on restore" > "$BACKUP_DIR/ai-tools/comfyui/custom-nodes.txt"
+        for node_dir in "$HOME/ComfyUI/custom_nodes"/*/; do
+            if [ -d "$node_dir/.git" ]; then
+                NODE_NAME=$(basename "$node_dir")
+                NODE_URL=$(git -C "$node_dir" remote get-url origin 2>/dev/null || echo "unknown")
+                echo "$NODE_NAME|$NODE_URL" >> "$BACKUP_DIR/ai-tools/comfyui/custom-nodes.txt"
+            fi
+        done
+        echo "   ✓ Custom nodes list saved"
+    fi
+
+    # Backup workflows (input folder often has workflows)
+    [ -d "$HOME/ComfyUI/input" ] && cp -r "$HOME/ComfyUI/input" "$BACKUP_DIR/ai-tools/comfyui/"
+    [ -d "$HOME/ComfyUI/user" ] && cp -r "$HOME/ComfyUI/user" "$BACKUP_DIR/ai-tools/comfyui/"
+
+    # Backup our MODELS.md documentation
+    [ -f "$HOME/ComfyUI/MODELS.md" ] && cp "$HOME/ComfyUI/MODELS.md" "$BACKUP_DIR/ai-tools/comfyui/"
+
+    # Backup extra_model_paths.yaml if customized
+    [ -f "$HOME/ComfyUI/extra_model_paths.yaml" ] && cp "$HOME/ComfyUI/extra_model_paths.yaml" "$BACKUP_DIR/ai-tools/comfyui/"
+
+    # Save Python version used
+    [ -f "$HOME/ComfyUI/venv/bin/python" ] && "$HOME/ComfyUI/venv/bin/python" --version > "$BACKUP_DIR/ai-tools/comfyui/python-version.txt" 2>&1
+
+    echo "   ✓ ComfyUI config backed up (models excluded)"
+fi
+
+# Fooocus - backup config, presets (NOT models)
+if [ -d "$HOME/Fooocus" ]; then
+    mkdir -p "$BACKUP_DIR/ai-tools/fooocus"
+
+    # Config files
+    [ -f "$HOME/Fooocus/config.txt" ] && cp "$HOME/Fooocus/config.txt" "$BACKUP_DIR/ai-tools/fooocus/"
+    [ -f "$HOME/Fooocus/auth.json" ] && cp "$HOME/Fooocus/auth.json" "$BACKUP_DIR/ai-tools/fooocus/"
+
+    # Custom presets and styles
+    [ -d "$HOME/Fooocus/presets" ] && cp -r "$HOME/Fooocus/presets" "$BACKUP_DIR/ai-tools/fooocus/"
+    [ -f "$HOME/Fooocus/sorted_styles.json" ] && cp "$HOME/Fooocus/sorted_styles.json" "$BACKUP_DIR/ai-tools/fooocus/"
+
+    # Save Python version used
+    [ -f "$HOME/Fooocus/venv/bin/python" ] && "$HOME/Fooocus/venv/bin/python" --version > "$BACKUP_DIR/ai-tools/fooocus/python-version.txt" 2>&1
+
+    echo "   ✓ Fooocus config backed up (models excluded)"
+fi
+
+# Backup AI tools desktop launchers
+mkdir -p "$BACKUP_DIR/ai-tools/launchers"
+[ -f "$HOME/.local/share/applications/comfyui.desktop" ] && cp "$HOME/.local/share/applications/comfyui.desktop" "$BACKUP_DIR/ai-tools/launchers/"
+[ -f "$HOME/.local/share/applications/fooocus.desktop" ] && cp "$HOME/.local/share/applications/fooocus.desktop" "$BACKUP_DIR/ai-tools/launchers/"
+
+echo "   ✓ AI tools configuration backed up"
+
+# ============================================================================
+# 17. BROWSERS (Firefox, Chrome, Brave, etc.) - EXPLICIT BACKUP
+# ============================================================================
+echo "[17/18] Backing up browser profiles (bookmarks, history, extensions)..."
+
+mkdir -p "$BACKUP_DIR/browsers"
+
+# Firefox / LibreWolf (stored in ~/.mozilla, not ~/.config)
+if [ -d "$HOME/.mozilla" ]; then
+    rsync -a --info=progress2 \
+        --exclude='*/cache2/' \
+        --exclude='*/Cache/' \
+        --exclude='*/crashes/' \
+        --exclude='*.sqlite-shm' \
+        --exclude='*.sqlite-wal' \
+        "$HOME/.mozilla/" "$BACKUP_DIR/browsers/mozilla/"
+    echo "   ✓ Firefox/Mozilla backed up"
+fi
+
+if [ -d "$HOME/.librewolf" ]; then
+    rsync -a --info=progress2 \
+        --exclude='*/cache2/' \
+        --exclude='*/Cache/' \
+        "$HOME/.librewolf/" "$BACKUP_DIR/browsers/librewolf/"
+    echo "   ✓ LibreWolf backed up"
+fi
+
+# Document Chromium-based browsers (already in ~/.config backup, but list them)
+echo "   Chromium browsers (in ~/.config backup):"
+[ -d "$HOME/.config/google-chrome" ] && echo "   ✓ Google Chrome"
+[ -d "$HOME/.config/chromium" ] && echo "   ✓ Chromium"
+[ -d "$HOME/.config/BraveSoftware" ] && echo "   ✓ Brave"
+[ -d "$HOME/.config/vivaldi" ] && echo "   ✓ Vivaldi"
+[ -d "$HOME/.config/opera" ] && echo "   ✓ Opera"
+[ -d "$HOME/.config/microsoft-edge" ] && echo "   ✓ Microsoft Edge"
+
+# Save list of browser extensions for reference
+echo "# Browser Extensions Inventory" > "$BACKUP_DIR/browsers/extensions-list.txt"
+echo "# Generated: $(date)" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+echo "" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+
+# Chrome extensions
+if [ -d "$HOME/.config/google-chrome/Default/Extensions" ]; then
+    echo "## Google Chrome Extensions:" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+    ls "$HOME/.config/google-chrome/Default/Extensions" 2>/dev/null >> "$BACKUP_DIR/browsers/extensions-list.txt"
+    echo "" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+fi
+
+# Brave extensions
+if [ -d "$HOME/.config/BraveSoftware/Brave-Browser/Default/Extensions" ]; then
+    echo "## Brave Extensions:" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+    ls "$HOME/.config/BraveSoftware/Brave-Browser/Default/Extensions" 2>/dev/null >> "$BACKUP_DIR/browsers/extensions-list.txt"
+    echo "" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+fi
+
+# Chromium extensions
+if [ -d "$HOME/.config/chromium/Default/Extensions" ]; then
+    echo "## Chromium Extensions:" >> "$BACKUP_DIR/browsers/extensions-list.txt"
+    ls "$HOME/.config/chromium/Default/Extensions" 2>/dev/null >> "$BACKUP_DIR/browsers/extensions-list.txt"
+fi
+
+echo "   ✓ Browser profiles backed up"
+
+# ============================================================================
+# 18. CREATE RESTORE SCRIPT AND ARCHIVE
+# ============================================================================
+echo "[18/18] Creating backup archive..."
 
 # Copy restore script
 cp "$(dirname "$0")/restore.sh" "$BACKUP_DIR/" 2>/dev/null || true
