@@ -3,6 +3,13 @@
 ## Daily Commands
 
 ```bash
+# System Health
+check           # Quick health check (10 areas)
+check --deep    # Deep analysis (18 areas)
+
+# System Update & Maintenance
+update          # Update, clean, optimize system
+
 # Power Profiles
 asusctl profile -p                    # Check current
 asusctl profile -P Balanced           # Daily work
@@ -13,6 +20,21 @@ asusctl profile -P Quiet              # Silent/battery
 nvidia-smi                            # GPU state
 ps aux | grep kwin                    # KWin CPU usage
 sensors                               # Temperatures
+```
+
+## Hardware Detection & Optimization
+
+```bash
+# Detect hardware
+./scripts/tools/detect-hardware.sh --summary
+
+# Apply optimizations (dry-run first)
+./scripts/tools/apply-optimizations.sh --dry-run
+./scripts/tools/apply-optimizations.sh
+
+# Rollback optimizations if needed
+./scripts/tools/rollback-optimizations.sh --dry-run
+./scripts/tools/rollback-optimizations.sh
 ```
 
 ## Duplicate Titlebars Fix
@@ -51,6 +73,9 @@ grep "blurEnabled" ~/.config/kwinrc
 # Verify DDC/CI is disabled
 grep "allowDdcCi" ~/.config/kwinoutputconfig.json
 # Should show: "allowDdcCi": false
+
+# Fix if needed
+~/garuda-restore/scripts/fix-ddc-config.sh
 ```
 
 ### Internal Display Gone
