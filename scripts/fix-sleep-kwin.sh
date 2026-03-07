@@ -102,6 +102,48 @@ fi
 echo ""
 
 # ============================================================================
+# PREFLIGHT: Verify /etc/systemd/system-sleep exists or create it
+# ============================================================================
+echo "[PREFLIGHT] Verifying sleep hook directory..."
+
+SLEEP_HOOK_DIR="/etc/systemd/system-sleep"
+
+if [ -d "$SLEEP_HOOK_DIR" ]; then
+    echo "  ✓ Directory exists: $SLEEP_HOOK_DIR"
+else
+    echo "  Creating directory: $SLEEP_HOOK_DIR"
+    if mkdir -p "$SLEEP_HOOK_DIR" 2>/dev/null; then
+        chmod 755 "$SLEEP_HOOK_DIR"
+        echo "  ✓ Directory created: $SLEEP_HOOK_DIR"
+    else
+        echo "  ✗ Failed to create directory: $SLEEP_HOOK_DIR"
+        echo ""
+        echo "ERROR: Cannot create sleep hook directory."
+        echo "Please ensure you have root privileges and the filesystem is writable."
+        echo ""
+        exit 1
+    fi
+fi
+echo ""
+
+# ============================================================================
+# MIGRATION: Remove old hook from /usr/lib if it exists
+# ============================================================================
+echo "[MIGRATION] Checking for old hook in /usr/lib..."
+
+OLD_HOOK="/usr/lib/systemd/system-sleep/99-kwin-fix"
+NEW_HOOK="/etc/systemd/system-sleep/99-kwin-fix"
+
+if [ -f "$OLD_HOOK" ]; then
+    echo "  Found old hook at $OLD_HOOK"
+    rm -f "$OLD_HOOK"
+    echo "  ✓ Removed old hook (will be replaced in /etc)"
+else
+    echo "  No old hook found"
+fi
+echo ""
+
+# ============================================================================
 # Check current sleep mode
 # ============================================================================
 CURRENT_SLEEP_MODE=$(cat /sys/power/mem_sleep 2>/dev/null | grep -o '\[.*\]' | tr -d '[]')
@@ -116,9 +158,9 @@ echo ""
 # ============================================================================
 # Create sleep hook
 # ============================================================================
-echo "[1/2] Creating sleep recovery hook..."
+echo "[1/3] Creating sleep recovery hook..."
 
-HOOK="/usr/lib/systemd/system-sleep/99-kwin-fix"
+HOOK="$NEW_HOOK"
 
 cat > "$HOOK" << 'EOF'
 #!/bin/bash
@@ -167,12 +209,17 @@ case "$1/$2" in
             log "DRM triggered" || true
 
         # 3. Refresh input devices
-        udevadm trigger --subsystem-match=input --action=add 2>/dev/null && \
-            log "Input refreshed" || true
+        # NOTE: Input reprobe is owned by fix-sddm-input.sh
+        # This hook focuses on display/KWin recovery only
+        # Input reprobe is skipped here to avoid redundant actions when both
+        # fixes are installed. See docs/SLEEP-WAKE-ISSUES.md for ownership details.
 
         # 4. Restart KWin for active user sessions
         # This is the KEY fix - KWin is frozen and must restart
         # Env vars must be set INSIDE the user command (su - may drop injected vars)
+        # TIMEOUT: Each D-Bus call is bounded to 5 seconds to prevent blocking resume
+        KWIN_RESTART_TIMEOUT=5
+        
         for uid in $(ls /run/user/ 2>/dev/null); do
             user=$(getent passwd "$uid" | cut -d: -f1)
             [ -z "$user" ] && continue
@@ -189,12 +236,18 @@ case "$1/$2" in
 
             # Set env vars INSIDE the user shell before running D-Bus command
             # This ensures they persist even if su - strips parent environment
-            if su - "$user" -c "XDG_RUNTIME_DIR='$USER_XDG_RUNTIME_DIR' DBUS_SESSION_BUS_ADDRESS='$USER_DBUS_ADDR' qdbus-qt6 org.kde.KWin /org/kde/KWin org.kde.KWin.restart" 2>/dev/null; then
-                log "KWin restart SUCCESS for $user (qdbus-qt6)"
-            elif su - "$user" -c "XDG_RUNTIME_DIR='$USER_XDG_RUNTIME_DIR' DBUS_SESSION_BUS_ADDRESS='$USER_DBUS_ADDR' qdbus org.kde.KWin /org/kde/KWin org.kde.KWin.restart" 2>/dev/null; then
-                log "KWin restart SUCCESS for $user (qdbus)"
+            # Each attempt is wrapped with timeout to prevent blocking resume path
+            if timeout "$KWIN_RESTART_TIMEOUT" su - "$user" -c "XDG_RUNTIME_DIR='$USER_XDG_RUNTIME_DIR' DBUS_SESSION_BUS_ADDRESS='$USER_DBUS_ADDR' qdbus-qt6 org.kde.KWin /org/kde/KWin org.kde.KWin.restart" 2>/dev/null; then
+                log "KWin restart SUCCESS for $user (qdbus-qt6, ${KWIN_RESTART_TIMEOUT}s timeout)"
+            elif timeout "$KWIN_RESTART_TIMEOUT" su - "$user" -c "XDG_RUNTIME_DIR='$USER_XDG_RUNTIME_DIR' DBUS_SESSION_BUS_ADDRESS='$USER_DBUS_ADDR' qdbus org.kde.KWin /org/kde/KWin org.kde.KWin.restart" 2>/dev/null; then
+                log "KWin restart SUCCESS for $user (qdbus, ${KWIN_RESTART_TIMEOUT}s timeout)"
             else
-                log "KWin restart FAILED for $user (command returned error)"
+                exit_code=$?
+                if [ $exit_code -eq 124 ]; then
+                    log "KWin restart TIMEOUT for $user (exceeded ${KWIN_RESTART_TIMEOUT}s)"
+                else
+                    log "KWin restart FAILED for $user (command returned error: exit $exit_code)"
+                fi
             fi
         done
 
@@ -213,7 +266,7 @@ echo "  ✓ Hook: $HOOK"
 # when called with proper user session context (su - user with XDG_RUNTIME_DIR)
 # ============================================================================
 echo ""
-echo "[2/2] No Polkit rule needed"
+echo "[2/3] No Polkit rule needed"
 echo "  • KWin restart uses existing D-Bus permissions"
 echo "  • Called with proper user session context"
 
@@ -221,7 +274,7 @@ echo "  • Called with proper user session context"
 # Reload
 # ============================================================================
 echo ""
-echo "Applying..."
+echo "[3/3] Applying changes..."
 
 udevadm control --reload-rules
 systemctl daemon-reload
@@ -249,5 +302,7 @@ echo "Test: systemctl suspend"
 echo "Logs: tail -f /var/log/kwin-sleep.log"
 echo ""
 echo "=== ROLLBACK ==="
-echo "sudo rm -f $HOOK"
+echo "sudo rm -f $NEW_HOOK"
 echo "sudo udevadm control --reload-rules"
+echo ""
+echo "Note: Hook is now in /etc (not /usr/lib) to survive package updates"

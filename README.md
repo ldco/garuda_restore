@@ -180,12 +180,40 @@ Remove or restore duplicate system titlebars on Electron/GTK apps.
 ```
 **Use when:** Apps show two titlebars (KDE + app colored).
 
-### fix-sddm-input.sh
-Fix SDDM login screen input after sleep.
+### fix-sleep.sh (Primary Entrypoint)
+**Single orchestration command for all sleep/wake issues.**
+```bash
+sudo ./scripts/fix-sleep.sh
+```
+**What it does:** Interactive symptom diagnosis that routes to the appropriate fix:
+- **Option 1:** Post-login freeze → KWin compositor recovery
+- **Option 2:** Login screen input frozen → SDDM input reprobe
+- **Option 3:** Both symptoms → Apply both fixes
+- **Option 4:** Diagnostics → Check current state
+
+**Use this script** unless you have specific requirements for manual control.
+
+### fix-sleep-kwin.sh (Advanced/Internal)
+**KWin compositor recovery hook.**
+```bash
+sudo ./scripts/fix-sleep-kwin.sh
+```
+**Use when:** You know you need only the KWin fix (post-login freeze).
+**What it does:** Resets display backlight, triggers DRM reprobe, restarts KWin
+**Hook location:** `/etc/systemd/system-sleep/99-kwin-fix`
+**Note:** This script is called by `fix-sleep.sh`. Use directly only for advanced scenarios.
+
+### fix-sddm-input.sh (Advanced/Internal)
+**SDDM input reprobe hook.**
 ```bash
 sudo ./scripts/fix-sddm-input.sh
 ```
-**Use when:** SDDM login screen doesn't accept keyboard input after wake.
+**Use when:** You know you need only the SDDM fix (login screen input frozen).
+**What it does:** Udev-based input reprobe + SDDM health checks + bounded recovery
+**Hook location:** `/etc/systemd/system-sleep/sddm-input-reset`
+**Note:** This script is called by `fix-sleep.sh`. Use directly only for advanced scenarios.
+
+**Input Reprobe Ownership:** The `fix-sddm-input.sh` hook is the sole owner of input device reprobe. The `fix-sleep-kwin.sh` hook focuses on display/KWin recovery only. This prevents redundant actions when both fixes are installed. See [`docs/SLEEP-WAKE-ISSUES.md`](docs/SLEEP-WAKE-ISSUES.md) for details.
 
 ---
 

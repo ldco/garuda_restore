@@ -45,12 +45,26 @@ sudo update-grub
 
 **Location:** `/etc/default/grub` → `GRUB_CMDLINE_LINUX_DEFAULT`
 
-**Applied when:** NVIDIA GPU + internal display issues detected
+**Applied when:** ⚠️ **OPT-IN ONLY** — Not auto-applied. Requires explicit `--force-fbdev` flag.
 
-**Why:** Forces NVIDIA DRM to use framebuffer device. Helps with:
+**Why:** Forces NVIDIA DRM to use framebuffer device. May help with:
 - Laptop internal displays not detected
 - Brightness control issues
 - Display initialization problems
+
+**⚠️ THERMAL SAFETY WARNING:**
+
+This parameter has been linked to **severe thermal instability** on hybrid GPU laptops:
+- NVIDIA GPU stuck at 40W idle (vs ~5W normal)
+- System overheating to 96°C+ causing thermal shutdown/reboot
+- Video memory staying active during suspend
+
+**Policy:** Per `docs/SLEEP-WAKE-ISSUES.md`, this parameter is **NOT auto-applied** due to thermal safety concerns.
+
+**To opt-in (at your own risk):**
+```bash
+sudo ./scripts/tools/apply-optimizations.sh --force-fbdev
+```
 
 **Safe to remove?** Yes — only needed if internal display doesn't work with modeset alone.
 
@@ -59,6 +73,8 @@ sudo update-grub
 sudo sed -i 's/ nvidia_drm.fbdev=1//' /etc/default/grub
 sudo update-grub
 ```
+
+**See also:** [`docs/SLEEP-WAKE-ISSUES.md`](SLEEP-WAKE-ISSUES.md) — Thermal safety policy and approved fixes
 
 ---
 

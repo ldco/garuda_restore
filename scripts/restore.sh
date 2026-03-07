@@ -830,9 +830,30 @@ echo "[20/22] Applying hardware-specific optimizations..."
 
 if [ -f "$APPLY_OPT_SCRIPT" ]; then
     echo ""
-    "$APPLY_OPT_SCRIPT"
-    echo ""
-    echo "   ✓ Hardware optimizations applied"
+    # Check if we have root privileges or can get them
+    if [ "$EUID" -ne 0 ]; then
+        # Not running as root - check if sudo is available
+        if ! command -v sudo &>/dev/null; then
+            echo -e "   ${RED}ERROR: Cannot apply optimizations without root privileges.${NC}"
+            echo "   This script requires sudo to apply system-level optimizations."
+            echo ""
+            echo "   Please re-run with: sudo ./scripts/restore.sh"
+            echo ""
+            echo "   Skipping optimizations..."
+            echo "   You can apply them later with: sudo $APPLY_OPT_SCRIPT"
+        else
+            # Re-execute this script with sudo for the optimization step
+            echo "   Elevating privileges for optimization script..."
+            sudo "$APPLY_OPT_SCRIPT"
+            echo ""
+            echo "   ✓ Hardware optimizations applied"
+        fi
+    else
+        # Already running as root
+        "$APPLY_OPT_SCRIPT"
+        echo ""
+        echo "   ✓ Hardware optimizations applied"
+    fi
 else
     echo "   ⚠ Optimization script not found, skipping"
 fi

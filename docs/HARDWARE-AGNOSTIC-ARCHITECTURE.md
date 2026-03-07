@@ -97,6 +97,7 @@ fi
 | NVMe scheduler `kyber` | Has NVMe drive | ✅ Yes | Optimal for NVMe |
 | ZRAM configuration | RAM < 32GB | ⚠️ Optional | More critical with less RAM |
 | Swappiness 133 | Using ZRAM | ✅ Yes | ZRAM optimization |
+| `nvidia_drm.fbdev=1` | ⚠️ **OPT-IN ONLY** | ❌ No | Thermal safety policy — requires `--force-fbdev` flag |
 
 ---
 
@@ -149,21 +150,20 @@ configure_grub_gpu() {
     if [ "$HAS_NVIDIA" = true ]; then
         # NVIDIA: Enable DRM modeset for Wayland
         GRUB_PARAMS="quiet loglevel=3 nvidia_drm.modeset=1"
-        
-        # Only add fbdev if internal display issues detected
-        if [ "$HAS_INTERNAL_DISPLAY_ISSUES" = true ]; then
-            GRUB_PARAMS="$GRUB_PARAMS nvidia_drm.fbdev=1"
-        fi
-        
+
+        # NOTE: nvidia_drm.fbdev=1 is NOT auto-applied due to thermal safety policy
+        # It requires explicit user opt-in via --force-fbdev flag
+        # See docs/SLEEP-WAKE-ISSUES.md for thermal safety details
+
     elif [ "$HAS_AMD_GPU" = true ]; then
         # AMD: Enable Vulkan and compute
         GRUB_PARAMS="quiet loglevel=3 amdgpu.sg_display=0"
-        
+
     elif [ "$HAS_INTEL_IGPU" = true ]; then
         # Intel: Enable VAAPI
         GRUB_PARAMS="quiet loglevel=3 i915.enable_psr=0"
     fi
-    
+
     # Apply to /etc/default/grub
     sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"$GRUB_PARAMS\"/" /etc/default/grub
 }

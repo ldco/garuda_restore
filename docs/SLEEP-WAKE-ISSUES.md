@@ -2,20 +2,42 @@
 
 ## Current Status: TARGETED FIX AVAILABLE (2026-03-07)
 
-### Decision Guide: Should You Apply This Fix?
+### Primary Entrypoint: fix-sleep.sh
+
+**Use this script** for interactive diagnosis and automatic routing:
+```bash
+sudo ./scripts/fix-sleep.sh
+```
+
+This orchestration command:
+1. Presents symptom-based menu (login freeze vs input freeze vs both)
+2. Routes to the appropriate fix script
+3. Applies fixes with proper validation
+4. Shows diagnostics if needed
+
+**See:** [README.md](../README.md) → "fix-sleep.sh (Primary Entrypoint)"
+
+---
+
+### Decision Guide: Should You Apply a Fix?
 
 | Your Symptom | Action |
 |--------------|--------|
-| Login screen works after sleep, but **desktop freezes after login** | **Apply the fix** (this document) |
-| Login screen itself is frozen (can't type password) | Try `fix-sddm-input.sh` instead |
+| Login screen works after sleep, but **desktop freezes after login** | KWin fix (via `fix-sleep.sh` option 1) |
+| Login screen itself is frozen (can't type password) | SDDM fix (via `fix-sleep.sh` option 2) |
+| Both symptoms occur | Both fixes (via `fix-sleep.sh` option 3) |
 | System wakes fine, no freezes | **Do nothing** - defaults work |
 | Fix causes thermal issues or instability | **Rollback** to defaults |
 
-### Active Fix: KWin Compositor Freeze
+---
 
-**Applies to:** KDE Plasma Wayland with hybrid GPU (Intel + NVIDIA)
+## KWin Compositor Freeze Fix
 
-Run this script to apply the KWin recovery fix:
+**Script:** `scripts/fix-sleep-kwin.sh` (called by `fix-sleep.sh`)
+
+**Use when:** Desktop freezes after login following sleep (KWin compositor frozen).
+
+Run this script directly for KWin recovery:
 ```bash
 sudo ./scripts/fix-sleep-kwin.sh
 ```
@@ -25,6 +47,7 @@ This installs a sleep hook that:
 2. Forces DRM/display subsystem reprobe
 3. Restarts KWin compositor via D-Bus with proper user session context
 4. Logs GPU power state before/after for thermal validation
+5. **Timeout-protected:** Each KWin restart attempt bounded to 5 seconds
 
 **Logs:** `/var/log/kwin-sleep.log`
 
@@ -42,9 +65,47 @@ ps aux | grep kwin_wayland  # Should show running process
 
 **Rollback to Defaults:**
 ```bash
-sudo rm -f /usr/lib/systemd/system-sleep/99-kwin-fix
+sudo rm -f /etc/systemd/system-sleep/99-kwin-fix
 sudo udevadm control --reload-rules
 ```
+
+**Note:** Hook location changed from `/usr/lib/systemd/system-sleep` to `/etc/systemd/system-sleep` to survive package updates. Migration is automatic when running the fix script.
+
+---
+
+## SDDM Input Fix: Udev-Based Input Reprobe
+
+**Script:** `scripts/fix-sddm-input.sh` (called by `fix-sleep.sh`)
+
+**Use when:** SDDM login screen doesn't accept keyboard/mouse input after wake from sleep.
+
+**What it does:**
+1. Triggers udev to re-probe input devices (safe, no module unload)
+2. Enables wakeup for suspended input devices
+3. Runs SDDM health checks (process, greeter, D-Bus responsiveness)
+4. Performs bounded fallback recovery (service restart) if health checks fail
+5. **Session-aware:** Skips recovery if user session is active (prevents data loss)
+6. **Structured queries:** Uses `loginctl show-session/show-seat` (no text parsing)
+
+**Key difference from old approach:** Does NOT unload `evdev` kernel module (unsafe on live system). Uses udevadm trigger instead.
+
+**Logs:** `/var/log/sddm-input-reset.log`
+
+---
+
+## Input Reprobe Ownership
+
+**Owner:** `fix-sddm-input.sh` is the sole owner of input device reprobe.
+
+**Rationale:**
+- Prevents redundant input reprobe when both fixes are installed
+- Cleaner logs with single source of truth
+- `fix-sleep-kwin.sh` focuses on display/KWin recovery only
+
+**When both fixes are needed:**
+1. Run `fix-sleep.sh` and select option 3 (both symptoms)
+2. Scripts apply in correct order (KWin first, then SDDM)
+3. Input reprobe runs once via SDDM hook only
 
 ---
 
@@ -277,11 +338,15 @@ journalctl -b | grep -iE "suspend|resume|wake|atomic|dpms"
 
 ### Recommendation Hierarchy
 
-1. **First:** Use system defaults (s2idle, no GRUB modifications)
-2. **If post-login freeze occurs:** Apply `fix-sleep-kwin.sh` (userspace compositor restart only)
-3. **If login screen input is frozen:** Try `fix-sddm-input.sh` (input module reload)
-4. **Never:** Modify GRUB with `nvidia_drm.fbdev=1`, `mem_sleep_default=deep`, or similar on this hardware
-5. **Always:** Rollback any fix that causes thermal instability
+| Priority | Action | What It Does | Risk Level |
+|----------|--------|--------------|------------|
+| **1st** | System defaults (s2idle, no GRUB mods) | Baseline stable configuration | ✅ None |
+| **2nd** | `fix-sleep-kwin.sh` (post-login freeze) | Userspace KWin compositor restart | ✅ Low (userspace only) |
+| **3rd** | `fix-sddm-input.sh` (login screen frozen) | Udev-based input reprobe + health checks | ✅ Low (no module unload) |
+| **Never** | GRUB params (`fbdev=1`, `mem_sleep_default=deep`) | Kernel/driver modifications | ❌ High (thermal instability) |
+| **Always** | Rollback if thermal issues occur | Remove any fix causing problems | ✅ Required |
+
+**Key Principle:** Fixes that work at the userspace level (restarting services, triggering udev) are safer than kernel/driver modifications.
 
 ---
 

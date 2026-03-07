@@ -8,7 +8,7 @@
 
 1. **FIRST:** Use system defaults (s2idle, no GRUB modifications)
 2. **IF post-login freeze occurs:** Apply `scripts/fix-sleep-kwin.sh` (userspace compositor restart only)
-3. **IF login screen input is frozen:** Try `scripts/fix-sddm-input.sh` (input module reload)
+3. **IF login screen input is frozen:** Try `scripts/fix-sddm-input.sh` (udev-based input reprobe with health checks)
 4. **NEVER:** Modify GRUB with `nvidia_drm.fbdev=1`, `mem_sleep_default=deep`, or similar on this hardware
 5. **ALWAYS:** Rollback any fix that causes thermal instability
 
@@ -92,6 +92,8 @@ KWIN_DRM_DEVICES=/dev/dri/card2:/dev/dri/card1
 ```
 
 **Why not recommended:** Modifies KWin behavior in ways that can conflict with sleep/wake recovery. See [`SLEEP-WAKE-ISSUES.md`](SLEEP-WAKE-ISSUES.md) for the approved userspace fix.
+
+**Note:** For SDDM input issues after sleep, use `fix-sddm-input.sh` which performs udev-based input reprobe (not module reload).
 
 ### Option 4: KWIN_DRM_ALLOW_NVIDIA_COLORSPACE ⚠️ EXPERIMENTAL
 
