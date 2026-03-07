@@ -43,9 +43,27 @@ sudo pacman -Syu --noconfirm
 echo "   ✓ System updated"
 
 # ============================================================================
-# 2. INSTALL CHAOTIC-AUR (if not present)
+# 2. DETECT HARDWARE
 # ============================================================================
-echo "[2/22] Ensuring Chaotic-AUR is configured..."
+echo "[2/22] Detecting hardware..."
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DETECT_SCRIPT="$SCRIPT_DIR/tools/detect-hardware.sh"
+APPLY_OPT_SCRIPT="$SCRIPT_DIR/tools/apply-optimizations.sh"
+
+if [ -f "$DETECT_SCRIPT" ]; then
+    echo ""
+    "$DETECT_SCRIPT" --summary
+    echo ""
+    echo "   ✓ Hardware detection complete"
+else
+    echo "   ⚠ Hardware detection script not found, skipping"
+fi
+
+# ============================================================================
+# 3. INSTALL CHAOTIC-AUR (if not present)
+# ============================================================================
+echo "[3/22] Ensuring Chaotic-AUR is configured..."
 
 if ! grep -q "chaotic-aur" /etc/pacman.conf 2>/dev/null; then
     echo "   Installing Chaotic-AUR..."
@@ -59,9 +77,9 @@ fi
 echo "   ✓ Chaotic-AUR configured"
 
 # ============================================================================
-# 3. INSTALL PARU (AUR helper)
+# 4. INSTALL PARU (AUR helper)
 # ============================================================================
-echo "[3/22] Ensuring paru is installed..."
+echo "[4/22] Ensuring paru is installed..."
 
 if ! command -v paru &> /dev/null; then
     echo "   Installing paru..."
@@ -805,6 +823,21 @@ fi
 echo "   ✓ Systemd services enabled"
 
 # ============================================================================
+# 19B. APPLY HARDWARE-SPECIFIC OPTIMIZATIONS
+# ============================================================================
+echo ""
+echo "[20/22] Applying hardware-specific optimizations..."
+
+if [ -f "$APPLY_OPT_SCRIPT" ]; then
+    echo ""
+    "$APPLY_OPT_SCRIPT"
+    echo ""
+    echo "   ✓ Hardware optimizations applied"
+else
+    echo "   ⚠ Optimization script not found, skipping"
+fi
+
+# ============================================================================
 # 20. OPTIONAL: RESTORE SYSTEM CONFIGS
 # ============================================================================
 echo ""
@@ -828,10 +861,10 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # ============================================================================
-# 21. FINAL SYSTEM UPDATE
+# 22. FINAL SYSTEM UPDATE
 # ============================================================================
 echo ""
-echo "[22/22] Running final system update..."
+echo "[22/23] Running final system update..."
 echo "   Updating all packages to latest versions..."
 
 # Full system update with paru (includes AUR)
@@ -893,6 +926,7 @@ echo "  ✓ VS Code extensions"
 echo "  ✓ Daily backup timer (auto-configured!)"
 echo "  ✓ Systemd services"
 echo "  ✓ System updated to latest packages"
+echo "  ✓ Hardware-specific optimizations applied (GPU, KWin, power, memory, I/O)"
 echo ""
 echo "╔══════════════════════════════════════════════════════════════════════╗"
 echo "║  IMPORTANT: You MUST log out and log back in (or reboot) for         ║"
