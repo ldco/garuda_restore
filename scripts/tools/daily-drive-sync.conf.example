@@ -1,0 +1,35 @@
+# ============================================================================
+# Daily Drive Sync - Local Configuration
+# ============================================================================
+# Copy this file to daily-drive-sync.conf.local and fill in your values.
+# This file is .gitignore'd - edit it for your specific machine.
+# ============================================================================
+
+# SOURCE = Your working laptop drive (the one you work on daily)
+# Find UUID: lsblk -o NAME,LABEL,UUID,MOUNTPOINT
+SOURCE_DRIVE="/run/media/ldco/YOUR_SOURCE_UUID"
+SOURCE_LABEL="LAPTOP WORKING DRIVE"
+SOURCE_IDENTIFIER="YOUR_SOURCE_UUID"
+
+# DEST = External backup drive ROOT (where backups go - direct copy, no subfolder!)
+DEST_DRIVE="/run/media/ldco/YOUR_BACKUP_LABEL"
+DEST_LABEL="EXTERNAL BACKUP - ROOT"
+DEST_IDENTIFIER="YOUR_BACKUP_LABEL"  # Safety check: dest path MUST contain this
+
+# Sync directly to root of external drive (no subfolder!)
+DEST_PATH="$DEST_DRIVE"
+
+# LUKS encrypted backup drive info (if applicable)
+# Find UUID: lsblk -o NAME,LABEL,UUID | grep -i luks
+BACKUP_PARTITION="/dev/disk/by-uuid/YOUR_LUKS_UUID"
+BACKUP_LUKS_NAME="luks-YOUR_LUKS_UUID"
+
+# ============================================================================
+# Example (for reference - DO NOT use these values):
+# ============================================================================
+# SOURCE_DRIVE="/run/media/ldco/3734114f-7123-41f5-8f63-7f43c94879eb"
+# SOURCE_IDENTIFIER="3734114f-7123-41f5-8f63-7f43c94879eb"
+# DEST_DRIVE="/run/media/ldco/LDCO_BCP_2TB"
+# DEST_IDENTIFIER="LDCO_BCP"
+# BACKUP_PARTITION="/dev/disk/by-uuid/5b0fa7b1-4000-40e4-b49d-dc0b5e72d449"
+# BACKUP_LUKS_NAME="luks-5b0fa7b1-4000-40e4-b49d-dc0b5e72d449"

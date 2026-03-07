@@ -2,7 +2,7 @@
 
 **Repository:** garuda-restore
 **Date:** 2026-03-07
-**Session:** Hardware-Agnostic Restore Kit Integration Complete
+**Session:** Tech Plan Execution — Repo Safety Fixes & Hardening Complete
 
 ---
 
@@ -10,30 +10,44 @@
 
 ### What Was Accomplished
 
-1. **Hardware-Agnostic Architecture Implemented**
-   - `detect-hardware.sh`: Comprehensive hardware detection (GPU, display, storage, RAM, peripherals)
-   - `apply-optimizations.sh`: Conditional optimization application based on detected hardware
-   - `rollback-optimizations.sh`: Complete rollback capability for all optimizations
-   - `fix-ddc-config.sh`: Fix DDC/CI inconsistency in kwinoutputconfig.json
+This session executed the **Tech Plan — Repo Safety Fixes, Dead File Removal & Hardware-Agnostic Restore Kit**:
 
-2. **restore.sh Integration Complete**
-   - Phase 1: Hardware detection (step 2/23, after system update)
-   - Phase 2: Apply optimizations (step 20/23, after systemd services)
-   - Updated step counter: 22/22 → 23/23 total steps
-   - Added hardware optimizations summary to completion message
+1. **Dead File Removal**
+   - Removed 7 files from `docs/` (GEOGRAF, COMIC, HERO files - unrelated to system management)
+   - Files deleted: `GEOGRAF-CHARACTERS-FULL.md`, `GEOGRAF-CHARACTER-AGE-MAP.md`, `GEOGRAF-CHARACTERS-CANON.yaml`, `COMIC-AI-WORKFLOW.md`, `HERO-PROMPTS.md`, `HERO-PROMPTS-TOM1.md`, `HEROES-TOM1.yaml`
 
-3. **Documentation Complete**
-   - `SETTINGS-DOCUMENTATION.md`: Every setting documented with why/when/rollback (695 lines)
-   - `HARDWARE-AGNOSTIC-ARCHITECTURE.md`: Design documentation and conditional settings matrix
-   - `EPIC-IMPLEMENTATION-STATUS.md`: Progress tracking updated to "Integration Complete"
-   - `QUICK-REFERENCE.md`: Added new commands (check, update, detect, apply, rollback)
+2. **Broken Reference Fixes**
+   - `README.md`: Updated scripts section, removed frozen config references, fixed documentation links
+   - `CLAUDE.md`: Updated entry points to match actual script names
+   - `.claude/config.json`: Updated entryPoints map (version 2.0.0)
 
-4. **System Audit Completed**
-   - Identified 8 orphan packages (asar, ctl, lib32-libcap, libkeybinder3, mimalloc, python-*)
-   - Identified 39GB pacman cache (can free ~20GB)
-   - Identified large user caches (36GB Chrome/Brave + 16GB pip)
-   - No failed systemd services ✓
-   - Firewall inactive ⚠
+3. **Script Hardening (Backup-First + Merge)**
+   - `force-system-titlebars.sh`: 
+     - Creates timestamped backup before any write
+     - Merges rules into existing kwinrulesrc (doesn't overwrite)
+     - Prints explicit rollback command
+   - `restore-system-titlebars.sh`:
+     - Creates timestamped backup before any write
+     - Removes only our specific rules (preserves others)
+     - Safer KWin restart (doesn't quit first, checks process alive)
+
+4. **Script Hardening (Safety Fixes)**
+   - `fix-sddm-input.sh`:
+     - Removed `modprobe -r evdev` (unsafe on live system)
+     - Uses `udevadm trigger --subsystem-match=input --action=add` instead
+     - Safe device re-probe without kernel module unload
+
+5. **Parametrization**
+   - `daily-drive-sync.sh`:
+     - Machine-specific values moved to `daily-drive-sync.conf.local`
+     - Created `daily-drive-sync.conf.example` with documented placeholders
+     - Script validates config at startup, exits with setup instructions if missing
+   - `.gitignore`: Added `scripts/tools/*.conf.local`
+
+6. **Pacman Hook Fix**
+   - `track-installs.hook`:
+     - Replaced hardcoded `runuser -u ldco` with `${SUDO_USER:-%h}`
+     - Uses `%h` expansion for home directory (username-agnostic)
 
 ---
 
@@ -41,33 +55,27 @@
 
 ### Git Status
 - Branch: master
-- Last commit: `docs: update EPIC status and QUICK-REFERENCE with new tools`
-- All changes committed ✓
+- Last commit: `docs: create comprehensive next chat handoff document` (c803c27)
+- **Uncommitted changes:** All hardening changes ready to commit
 
-### Success Criteria Progress
-
-| Criterion | Status | Notes |
-|-----------|--------|-------|
-| `check --deep` shows zero issues | ⏳ Pending | Tool exists, needs sudo auth for fixes |
-| `update` leaves no orphans/cache | ⏳ Pending | Tool exists, identified issues, needs sudo |
-| Restore kit works on different hardware | ✅ **Complete** | Detection + conditional logic + restore.sh integration |
-| Every setting has documented "why" | ✅ **Complete** | SETTINGS-DOCUMENTATION.md (695 lines) |
-| Hardware-specific settings gated | ✅ **Complete** | Detection + apply + rollback scripts |
-
-### System Health (Last Check)
-
-```
-Installed packages: 2059
-Orphan packages: 8 (needs sudo to remove)
-Package cache: 39G (needs sudo to clean)
-AUR packages: 22
-Failed services: 0 ✓
-Firewall: Inactive ⚠
-```
+### Files Modified
+| File | Change |
+|------|--------|
+| `scripts/force-system-titlebars.sh` | Backup-first + merge logic |
+| `scripts/restore-system-titlebars.sh` | Backup-first + safer KWin restart |
+| `scripts/fix-sddm-input.sh` | Removed evdev unload, uses udevadm |
+| `scripts/tools/daily-drive-sync.sh` | Sources config.local file |
+| `scripts/tools/daily-drive-sync.conf.example` | NEW - example config |
+| `pacman-hooks/track-installs.hook` | Username-agnostic |
+| `README.md` | Fixed broken references |
+| `CLAUDE.md` | Updated entry points |
+| `.claude/config.json` | Updated entryPoints (v2.0.0) |
+| `.gitignore` | Added *.conf.local |
+| `docs/` | Removed 7 dead files |
 
 ---
 
-## Remaining Tasks
+## Remaining Tasks (from Tech Plan)
 
 ### High Priority (Requires Sudo)
 
@@ -101,15 +109,11 @@ Firewall: Inactive ⚠
 3. **asusctl Service**
    - Currently not responding (service issue)
    - May need restart or reinstallation
-   ```bash
-   sudo systemctl restart asusd
-   systemctl status asusd
-   ```
 
 4. **AMD False Positive in Detection**
    - Detection script finds AMD Host bridge, not GPU
    - Low impact (doesn't apply wrong optimizations)
-   - Could refine regex pattern in `detect-hardware.sh`
+   - Could refine regex pattern
 
 ### Low Priority
 
@@ -119,129 +123,104 @@ Firewall: Inactive ⚠
    - Test on VM (no GPU)
    - Test on desktop (no laptop tools)
 
-6. **Interactive Prompts Enhancement**
-   - Add user confirmation for major changes
-   - Add "skip all" option for batch mode
-   - Add verbose logging option
-
 ---
 
 ## Key Files Reference
 
-### Scripts
+### Scripts (Hardened)
+| File | Purpose | Safety Features |
+|------|---------|-----------------|
+| `scripts/force-system-titlebars.sh` | Remove duplicate titlebars | Backup-first, merge rules |
+| `scripts/restore-system-titlebars.sh` | Restore system titlebars | Backup-first, safer KWin restart |
+| `scripts/fix-sddm-input.sh` | Fix SDDM input after sleep | No kernel module unload |
+| `scripts/tools/daily-drive-sync.sh` | Drive backup sync | Config validation, safety checks |
+| `scripts/tools/detect-hardware.sh` | Hardware detection | Read-only |
+| `scripts/tools/apply-optimizations.sh` | Apply optimizations | Conditional, dry-run mode |
+| `scripts/tools/rollback-optimizations.sh` | Rollback optimizations | Category-specific, dry-run |
+
+### Configuration
 | File | Purpose |
 |------|---------|
-| `scripts/tools/detect-hardware.sh` | Hardware detection (JSON/summary/check modes) |
-| `scripts/tools/apply-optimizations.sh` | Apply optimizations conditionally |
-| `scripts/tools/rollback-optimizations.sh` | Rollback all optimizations |
-| `scripts/fix-ddc-config.sh` | Fix DDC/CI in kwinoutputconfig.json |
-| `scripts/tools/system-update.sh` | System update & maintenance (`update` command) |
-| `scripts/tools/system-health-check.sh` | Health check (`check` command) |
-| `scripts/restore.sh` | Full system restore (23 steps) |
+| `scripts/tools/daily-drive-sync.conf.example` | Example config (committed) |
+| `scripts/tools/daily-drive-sync.conf.local` | Machine-specific config (.gitignore'd) |
+| `pacman-hooks/track-installs.hook` | Package tracking (username-agnostic) |
 
 ### Documentation
 | File | Purpose |
 |------|---------|
-| `docs/SETTINGS-DOCUMENTATION.md` | Every setting documented with why/when/rollback |
+| `docs/SETTINGS-DOCUMENTATION.md` | Every setting documented |
 | `docs/HARDWARE-AGNOSTIC-ARCHITECTURE.md` | Design documentation |
 | `docs/EPIC-IMPLEMENTATION-STATUS.md` | Progress tracking |
-| `docs/QUICK-REFERENCE.md` | Daily commands cheat sheet |
-| `docs/SYSTEM-STATE.md` | Frozen config reference |
-| `docs/SLEEP-WAKE-ISSUES.md` | Sleep/wake troubleshooting |
+| `docs/QUICK-REFERENCE.md` | Daily commands |
+| `docs/NEXT_CHAT_HANDOFF.md` | This file |
 
 ---
 
 ## Commands Reference
 
-### Hardware Detection
+### Commit Pending Changes
 ```bash
-# Full summary
-./scripts/tools/detect-hardware.sh --summary
+cd ~/garuda-restore
+git add -A
+git status  # Review changes
+git commit -m "feat: harden scripts with backup-first and safety fixes
 
-# JSON output (for scripting)
-./scripts/tools/detect-hardware.sh
+- force/restore-system-titlebars.sh: backup-first + merge logic
+- fix-sddm-input.sh: removed evdev unload, uses udevadm trigger
+- daily-drive-sync.sh: parametrized via config.local
+- track-installs.hook: username-agnostic (${SUDO_USER:-%h})
+- README.md, CLAUDE.md, .claude/config.json: fixed broken references
+- docs/: removed 7 dead files (GEOGRAF, COMIC, HERO)
+- .gitignore: added *.conf.local
 
-# Check specific component
-./scripts/tools/detect-hardware.sh --check GPU
-./scripts/tools/detect-hardware.sh --check display
-./scripts/tools/detect-hardware.sh --check storage
+Co-authored-by: Qwen-Coder <qwen-coder@alibabacloud.com>"
 ```
 
-### Apply Optimizations
+### Test Hardened Scripts
 ```bash
-# Dry run (preview changes)
-./scripts/tools/apply-optimizations.sh --dry-run
+# Test force-system-titlebars.sh (creates backup)
+./scripts/force-system-titlebars.sh
 
-# Apply all
-./scripts/tools/apply-optimizations.sh
+# Test restore-system-titlebars.sh (creates backup)
+./scripts/restore-system-titlebars.sh
 
-# Apply specific category
-./scripts/tools/apply-optimizations.sh --category GPU
-./scripts/tools/apply-optimizations.sh --category KWin
-./scripts/tools/apply-optimizations.sh --category power
-./scripts/tools/apply-optimizations.sh --category memory
-./scripts/tools/apply-optimizations.sh --category io
-./scripts/tools/apply-optimizations.sh --category security
+# Test fix-sddm-input.sh (requires sudo)
+sudo ./scripts/fix-sddm-input.sh
+
+# Test daily-drive-sync.sh (requires config.local)
+./scripts/tools/daily-drive-sync.sh
 ```
 
-### Rollback Optimizations
-```bash
-# Dry run (preview rollback)
-./scripts/tools/rollback-optimizations.sh --dry-run
+---
 
-# Rollback all
-./scripts/tools/rollback-optimizations.sh
+## Safety Guarantees (After Hardening)
 
-# Rollback specific category
-./scripts/tools/rollback-optimizations.sh --category GPU
-./scripts/tools/rollback-optimizations.sh --category KWin
-```
-
-### System Health
-```bash
-# Quick check (10 areas)
-check
-
-# Deep check (18 areas)
-check --deep
-```
-
-### System Update
-```bash
-# Update, clean, optimize
-update
-```
-
-### Fix DDC/CI
-```bash
-# Fix kwinoutputconfig.json DDC/CI inconsistency
-./scripts/fix-ddc-config.sh
-```
+| Script | Before | After |
+|--------|--------|-------|
+| `force-system-titlebars.sh` | Overwrote kwinrulesrc | Backup-first, merges rules |
+| `restore-system-titlebars.sh` | Overwrote kwinrulesrc, quit KWin | Backup-first, removes only our rules, safer restart |
+| `fix-sddm-input.sh` | `modprobe -r evdev` (unsafe) | `udevadm trigger` (safe) |
+| `daily-drive-sync.sh` | Hardcoded UUIDs/paths | Config file with validation |
+| `track-installs.hook` | Hardcoded username | Username-agnostic |
 
 ---
 
 ## Testing Checklist
 
-### On Current System (Validation)
-- [ ] Run `check --deep` and fix all reported issues
-- [ ] Run `update` with sudo to clean orphans and cache
-- [ ] Enable firewall and configure SSH
-- [ ] Test `rollback-optimizations.sh --dry-run`
-- [ ] Test `fix-ddc-config.sh` on kwinoutputconfig.json
+### Script Hardening Validation
+- [ ] Run `force-system-titlebars.sh` - verify backup created
+- [ ] Check backup file exists: `~/.config/kwinrulesrc.backup.*`
+- [ ] Run `restore-system-titlebars.sh` - verify backup created
+- [ ] Verify KWin survives restart (doesn't crash)
+- [ ] Run `fix-sddm-input.sh` with sudo - verify no errors
+- [ ] Test sleep/wake after fix - verify input works
+- [ ] Create `daily-drive-sync.conf.local` - verify script runs
+- [ ] Remove config file - verify script exits with instructions
 
-### On Fresh Garuda Install (End-to-End)
-- [ ] Clone repo on fresh Garuda KDE install
-- [ ] Run `./scripts/restore.sh` from backup directory
-- [ ] Verify hardware detection works correctly
-- [ ] Verify optimizations applied conditionally
-- [ ] Verify all settings documented
-- [ ] Reboot and verify system works
-
-### On Different Hardware
-- [ ] Test on pure AMD system (no NVIDIA/Intel)
-- [ ] Test on Intel-only system (no NVIDIA/AMD)
-- [ ] Test on VM (no GPU passthrough)
-- [ ] Test on desktop (no laptop-specific tools)
+### System Cleanup (Requires Sudo)
+- [ ] Run `check --deep` - verify issues identified
+- [ ] Run `update` with sudo - verify orphans/cache cleaned
+- [ ] Enable firewall - verify SSH access preserved
 
 ---
 
@@ -252,82 +231,62 @@ update
 | Sudo required for cleanup | Cannot auto-clean without password | User must run with sudo |
 | Firewall inactive | Security risk | Prompt user during apply-optimizations |
 | asusctl service not responding | Power profiles may not work | Restart service or reinstall |
-| AMD false positive in detection | Low (no wrong optimizations applied) | Refine regex if needed |
+| AMD false positive in detection | Low (no wrong optimizations) | Refine regex if needed |
+| daily-drive-sync.conf.local missing | Script won't run | Exits with setup instructions |
 
 ---
 
 ## Next Session Starting Point
 
-1. **Immediate:** Run system cleanup with sudo
+1. **Immediate:** Commit all pending changes
    ```bash
    cd ~/garuda-restore
+   git add -A
+   git commit -m "..."
+   ```
+
+2. **Short-term:** Run system cleanup with sudo
+   ```bash
    ./scripts/tools/system-update.sh
    # Enter password when prompted
    ```
 
-2. **Short-term:** Enable firewall
+3. **Validation:** Test hardened scripts
    ```bash
-   ./scripts/tools/apply-optimizations.sh --category security
+   ./scripts/force-system-titlebars.sh
+   ./scripts/restore-system-titlebars.sh
+   check --deep
    ```
-
-3. **Validation:** Run deep health check
-   ```bash
-   ./scripts/tools/system-health-check.sh --deep
-   ```
-
-4. **Documentation:** Update SYSTEM-STATE.md if any settings changed
 
 ---
 
 ## Architecture Notes
 
-### Hardware Detection Flow
-```
-restore.sh (step 2)
-  └─> detect-hardware.sh --summary
-       └─> Outputs: GPU, display, storage, RAM, peripherals
-       └─> Used by: apply-optimizations.sh for conditional logic
-```
-
-### Optimization Application Flow
-```
-restore.sh (step 20)
-  └─> apply-optimizations.sh
-       └─> Detects hardware (calls detect-hardware.sh)
-       └─> Applies optimizations conditionally
-       └─> Logs applied/skipped items
-       └─> Prompts for reboot if GRUB modified
+### Backup-First Pattern
+All destructive scripts now follow this pattern:
+```bash
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+if [ -f "$CONFIG_FILE" ]; then
+    cp "$CONFIG_FILE" "$CONFIG_FILE.backup.$TIMESTAMP"
+    echo "✓ Backed up existing config"
+fi
+# Then merge or write new config
 ```
 
-### Rollback Flow
-```
-rollback-optimizations.sh
-  └─> Reverts GRUB parameters
-  └─> Removes environment configs
-  └─> Removes sysctl configs
-  └─> Removes udev rules
-  └─> Prompts for firewall disable
-  └─> Prompts for reboot
+### Merge-Instead-Of-Overwrite Pattern
+For files that may contain user data (kwinrulesrc, settings.json):
+```bash
+# Read existing content
+# Remove only our specific entries (by UUID or key)
+# Append new entries
+# Update count/metadata
 ```
 
----
-
-## Success Metrics
-
-### Current State
-- ✅ Hardware detection: 100% functional
-- ✅ Conditional optimization: 100% functional
-- ✅ Documentation: 100% complete
-- ✅ Rollback capability: 100% functional
-- ✅ restore.sh integration: 100% complete
-- ⏳ System cleanup: Pending (needs sudo)
-- ⏳ Firewall: Pending (user choice)
-
-### Target State
-- ✅ All success criteria met
-- ✅ System fully cleaned and optimized
-- ✅ Tested on multiple hardware configurations
-- ✅ Production-ready restore kit
+### Safe Device Re-probe Pattern
+Instead of unloading kernel modules:
+```bash
+udevadm trigger --subsystem-match=input --action=add
+```
 
 ---
 

@@ -8,4 +8,6 @@ Target = *
 [Action]
 Description = Updating installed software tracker...
 When = PostTransaction
-Exec = /usr/bin/runuser -u ldco -- /home/ldco/.local/share/garuda-backup-scripts/install-tracker.sh
+# Use %h for home directory (expands to home of user running the hook)
+# Use $SUDO_USER if available, otherwise fall back to current user
+Exec = /usr/bin/runuser -u ${SUDO_USER:-%h} -- %h/.local/share/garuda-backup-scripts/install-tracker.sh

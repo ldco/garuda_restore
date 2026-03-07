@@ -18,6 +18,9 @@ temp/
 *.key
 *.pem
 
+# Local configuration files (machine-specific)
+scripts/tools/*.conf.local
+
 # Claude Code - COMMIT these (shared with team):
 # CLAUDE.md              - project rules
 # .claude/config.json    - project configuration

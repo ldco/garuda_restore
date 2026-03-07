@@ -3,64 +3,77 @@
 # Fix SDDM Login Screen Input After Sleep (Wayland-safe)
 # ============================================================================
 # Creates systemd sleep hook to reset input devices on wake
-# Does NOT change Wayland/X11 settings
+# 
+# CHANGES FROM ORIGINAL:
+# - Removed modprobe -r evdev (unsafe on live system)
+# - Uses udevadm trigger instead (safe device re-probe)
+# - Does NOT change Wayland/X11 settings
 # ============================================================================
 
 set -e
 
-echo "=== SDDM Input Fix (Wayland-safe) ==="
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${BOLD}      SDDM Input Fix (Wayland-safe)${NC}"
+echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
-    echo "Please run with sudo"
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}Please run with sudo${NC}"
     exit 1
 fi
 
 # ============================================================================
 # Create systemd sleep hook to reset input devices
 # ============================================================================
-echo "[1/2] Creating systemd sleep hook..."
+echo -e "${CYAN}[1/2] Creating systemd sleep hook...${NC}"
 
 SLEEP_HOOK="/usr/lib/systemd/system-sleep/sddm-input-reset"
 
 cat > "$SLEEP_HOOK" << 'EOF'
 #!/bin/bash
 # Reset input devices after resume to fix SDDM login screen input
+# Wayland-safe: uses udevadm trigger instead of module unload
 
 case "$1/$2" in
     post/*)
         # Wait for system to stabilize
         sleep 1
-        
-        # Method 1: Reload input kernel modules
-        # This forces re-initialization of keyboard/touchpad
-        for module in hid_generic usbhid i2c_hid_acpi i2c_hid_hidpp; do
-            if lsmod | grep -q "^${module}"; then
-                modprobe -r "$module" 2>/dev/null && sleep 0.3 && modprobe "$module" 2>/dev/null && \
-                    echo "[$(date)] Reloaded $module" >> /var/log/sddm-input-reset.log || true
+
+        # Method: Trigger udev to re-probe input devices
+        # This is safer than unloading kernel modules on a live system
+        udevadm trigger --subsystem-match=input --action=add 2>/dev/null && \
+            echo "[$(date)] Input devices re-probed via udevadm" >> /var/log/sddm-input-reset.log || \
+            echo "[$(date)] udevadm trigger failed" >> /var/log/sddm-input-reset.log
+
+        # Optional: Also try to wake up any suspended input devices
+        for dev in /sys/class/input/*/device/power/wakeup; do
+            if [ -f "$dev" ]; then
+                echo enabled > "$dev" 2>/dev/null || true
             fi
         done
-        
-        # Method 2: Reload evdev (core input handler)
-        if lsmod | grep -q "^evdev"; then
-            modprobe -r evdev 2>/dev/null && sleep 0.3 && modprobe evdev 2>/dev/null && \
-                echo "[$(date)] Reloaded evdev" >> /var/log/sddm-input-reset.log || true
-        fi
-        
+
         echo "[$(date)] Input reset complete" >> /var/log/sddm-input-reset.log
         ;;
 esac
 EOF
 
 chmod +x "$SLEEP_HOOK"
-echo "  ✓ Sleep hook created: $SLEEP_HOOK"
+echo -e "   ${GREEN}✓${NC} Sleep hook created: $SLEEP_HOOK"
 
 # ============================================================================
 # Create udev rule to prevent input devices from suspending
 # ============================================================================
 echo ""
-echo "[2/2] Creating udev rule..."
+echo -e "${CYAN}[2/2] Creating udev rule...${NC}"
 
 UDEV_RULE="/etc/udev/rules.d/99-input-wakeup.rules"
 
@@ -71,7 +84,7 @@ ACTION=="add", SUBSYSTEM=="input", ATTR{power/wakeup}="enabled"
 ACTION=="change", SUBSYSTEM=="input", ATTR{power/wakeup}="enabled"
 EOF
 
-echo "  ✓ Udev rule created: $UDEV_RULE"
+echo -e "   ${GREEN}✓${NC} Udev rule created: $UDEV_RULE"
 
 # ============================================================================
 # Reload configurations
@@ -80,30 +93,38 @@ echo ""
 echo "Applying changes..."
 
 # Reload udev rules
-udevadm control --reload-rules 2>/dev/null || true
-echo "  ✓ Udev rules reloaded"
+udevadm control --reload-rules 2>/dev/null && \
+    echo -e "   ${GREEN}✓${NC} Udev rules reloaded" || \
+    echo -e "   ${YELLOW}⚠${NC} Udev rules reload skipped (may need reboot)"
 
 # ============================================================================
 # Summary
 # ============================================================================
 echo ""
-echo "=== Fix Applied Successfully ==="
+echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}✓ Fix Applied Successfully${NC}"
+echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 echo "What this does:"
-echo "  • Resets input kernel modules after wake from sleep"
+echo "  • Re-probes input devices after wake via udevadm trigger"
 echo "  • Prevents input devices from staying suspended"
 echo "  • Works with Wayland (no X11 changes)"
+echo "  • ${GREEN}SAFE:${NC} Does NOT unload kernel modules on live system"
 echo ""
 echo "Files created:"
 echo "  - $SLEEP_HOOK"
 echo "  - $UDEV_RULE"
 echo ""
-echo "=== NEXT STEPS ==="
+echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${BOLD} NEXT STEPS${NC}"
+echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo "1. Test immediately: systemctl suspend"
 echo "2. Wake system and try typing password"
 echo "3. Check logs: cat /var/log/sddm-input-reset.log"
 echo ""
-echo "=== ROLLBACK (if needed) ==="
+echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${YELLOW} ROLLBACK (if needed)${NC}"
+echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
 echo "Run these commands manually:"
 echo "  sudo rm -f $SLEEP_HOOK $UDEV_RULE"
 echo "  sudo udevadm control --reload-rules"

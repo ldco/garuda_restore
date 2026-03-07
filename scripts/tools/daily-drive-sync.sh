@@ -3,29 +3,65 @@
 # Daily Drive Sync - Syncs working drive to backup external drive
 # ============================================================================
 # Features: Start/Progress/Complete notifications, GUI sudo prompt, rsync
+# 
+# CONFIGURATION: Copy scripts/tools/daily-drive-sync.conf.example to
+# scripts/tools/daily-drive-sync.conf.local and fill in your values.
+# This file is .gitignore'd - edit it for your specific machine.
 # ============================================================================
 
+set -e
+
 # ============================================================================
-# CONFIGURATION - SAFETY: SOURCE is LAPTOP, DEST is EXTERNAL BACKUP
+# Load Configuration
+# ============================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/daily-drive-sync.conf.local"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "ERROR: Configuration file not found: $CONFIG_FILE"
+    echo ""
+    echo "Setup instructions:"
+    echo "  1. Copy the example config:"
+    echo "     cp $SCRIPT_DIR/daily-drive-sync.conf.example $CONFIG_FILE"
+    echo ""
+    echo "  2. Edit $CONFIG_FILE with your drive UUIDs/labels:"
+    echo "     nano $CONFIG_FILE"
+    echo ""
+    echo "  3. Find your drive UUIDs:"
+    echo "     lsblk -o NAME,LABEL,UUID,MOUNTPOINT"
+    echo ""
+    exit 1
+fi
+
+# Source the config file
+source "$CONFIG_FILE"
+
+# Validate required variables
+if [ -z "$SOURCE_DRIVE" ] || [ -z "$DEST_DRIVE" ] || [ -z "$DEST_IDENTIFIER" ]; then
+    echo "ERROR: Configuration file is incomplete."
+    echo "Please edit $CONFIG_FILE and set:"
+    echo "  - SOURCE_DRIVE"
+    echo "  - DEST_DRIVE"
+    echo "  - DEST_IDENTIFIER"
+    exit 1
+fi
+
+# ============================================================================
+# Sync Configuration (from config file)
 # ============================================================================
 # SOURCE = Your working laptop drive (the one you work on daily)
-SOURCE_DRIVE="/run/media/ldco/3734114f-7123-41f5-8f63-7f43c94879eb"
-SOURCE_LABEL="LAPTOP WORKING DRIVE"
-SOURCE_IDENTIFIER="3734114f-7123-41f5-8f63-7f43c94879eb"
+# SOURCE_LABEL and SOURCE_IDENTIFIER are set in config file
 
-# DEST = External backup drive ROOT (where backups go - direct copy, no subfolder!)
-DEST_DRIVE="/run/media/ldco/LDCO_BCP_2TB"
-DEST_LABEL="EXTERNAL BACKUP (LDCO_BCP_2TB) - ROOT"
-DEST_IDENTIFIER="LDCO_BCP"  # Safety check: dest path MUST contain this
+# DEST = External backup drive ROOT (where backups go)
+# DEST_LABEL and DEST_IDENTIFIER are set in config file
 
 # Sync directly to root of external drive (no subfolder!)
-DEST_PATH="$DEST_DRIVE"
+DEST_PATH="${DEST_PATH:-$DEST_DRIVE}"
 LOG_FILE="$HOME/.local/share/drive-sync/sync.log"
 LOCK_FILE="/tmp/drive-sync.lock"
 
-# LUKS encrypted backup drive info
-BACKUP_PARTITION="/dev/disk/by-uuid/5b0fa7b1-4000-40e4-b49d-dc0b5e72d449"
-BACKUP_LUKS_NAME="luks-5b0fa7b1-4000-40e4-b49d-dc0b5e72d449"
+# LUKS encrypted backup drive info (optional)
+# BACKUP_PARTITION and BACKUP_LUKS_NAME are set in config file
 
 # Create directories
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -109,7 +145,7 @@ fi
 if [ ! -d "$DEST_DRIVE" ] || ! mountpoint -q "$DEST_DRIVE" 2>/dev/null; then
     log "ERROR: Backup drive not mounted at $DEST_DRIVE"
     log "Please manually unlock and mount the backup drive first."
-    notify "❌ Drive Sync FAILED" "Backup drive not mounted!\nUnlock LDCO_BCP_2TB first, sync will start automatically." "dialog-error" "critical" "error"
+    notify "❌ Drive Sync FAILED" "Backup drive not mounted!\nUnlock $DEST_IDENTIFIER first, sync will start automatically." "dialog-error" "critical" "error"
     exit 1
 fi
 
@@ -143,7 +179,7 @@ log "Running rsync..."
 RSYNC_START=$(date +%s)
 
 # Build rsync command based on user choice
-RSYNC_OPTS="-aHAXv --progress --exclude=.Trash-* --exclude=lost+found --exclude=3734114f-7123-41f5-8f63-7f43c94879eb"
+RSYNC_OPTS="-aHAXv --progress --exclude=.Trash-* --exclude=lost+found --exclude=$SOURCE_IDENTIFIER"
 
 # Create a named pipe for progress
 PROGRESS_PIPE="/tmp/drive-sync-progress-$$"
@@ -177,7 +213,7 @@ show_gui_progress() {
             qdbus $dbus_ref 2>/dev/null | grep -q "org.kde.kdialog" && return 0
         fi
         return 1
-    }
+    fi
 
     # DON'T create dialog yet - wait for first rsync output (after password is entered)
 
@@ -257,10 +293,10 @@ RSYNC_SECONDS=$((RSYNC_DURATION % 60))
 if [ $RSYNC_EXIT -eq 0 ]; then
     # Get synced size
     DEST_SIZE=$(du -sh "$DEST_PATH" 2>/dev/null | cut -f1)
-    
+
     log "SUCCESS: Sync completed in ${RSYNC_MINUTES}m ${RSYNC_SECONDS}s"
     log "Destination size: $DEST_SIZE"
-    notify "✅ Drive Sync Complete" "Synced: $DEST_SIZE\nDuration: ${RSYNC_MINUTES}m ${RSYNC_SECONDS}s\nTo: LDCO_BCP_2TB" "dialog-ok" "normal" "complete"
+    notify "✅ Drive Sync Complete" "Synced: $DEST_SIZE\nDuration: ${RSYNC_MINUTES}m ${RSYNC_SECONDS}s\nTo: $DEST_IDENTIFIER" "dialog-ok" "normal" "complete"
 else
     log "ERROR: rsync failed with exit code $RSYNC_EXIT"
     notify "❌ Drive Sync FAILED" "rsync error code: $RSYNC_EXIT\nCheck: $LOG_FILE" "dialog-error" "critical" "error"
@@ -269,4 +305,3 @@ fi
 
 log "Daily sync completed successfully"
 log "=========================================="
-

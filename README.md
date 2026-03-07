@@ -109,10 +109,10 @@ garuda-restore/
 
 ## Scripts
 
-### backup-settings.sh
+### backup.sh
 **Core backup script** - creates complete system backup archive.
 ```bash
-./scripts/backup-settings.sh
+./scripts/backup.sh
 # Output: ~/garuda-backup-YYYY-MM-DD.tar.gz
 ```
 Use this for manual backups.
@@ -123,14 +123,6 @@ One-click restore on fresh Garuda install.
 ./scripts/restore.sh
 ```
 Finds backup, extracts, restores everything, prompts for reboot.
-
-### restore-frozen-config.sh
-Restores only the frozen KWin/display config.
-```bash
-./scripts/restore-frozen-config.sh
-# Then logout/login
-```
-**Use when:** Display broken, screen flickering, mouse lag after updates.
 
 ### system-health-check.sh
 **Interactive health check** - analyzes system and offers to fix issues.
@@ -153,7 +145,7 @@ update   # Run from anywhere
 6. Optimizes pacman database, fonts, desktop db
 
 ### daily-backup.sh
-**Wrapper for automation** - calls `backup-settings.sh` with extras:
+**Wrapper for automation** - calls `backup.sh` with extras:
 - GUI password prompt (ksshaskpass)
 - KDE desktop notifications (start/progress/done)
 - Auto-deletes backups older than 7 days
@@ -168,40 +160,60 @@ Configure systemd timer for daily backups at midnight.
 
 ### daily-drive-sync.sh
 Rsync working drive to backup drive (incremental).
+**Note:** Requires `scripts/tools/daily-drive-sync.conf.local` config file.
 
 ### setup-drive-sync.sh
 Configure systemd timer for drive sync.
 
+### fix-ddc-config.sh
+Fix KWin output config - disable DDC/CI on all monitors.
+```bash
+./scripts/fix-ddc-config.sh
+```
+**Use when:** Screen flickering, NVIDIA I2C errors in logs.
+
+### force-system-titlebars.sh / restore-system-titlebars.sh
+Remove or restore duplicate system titlebars on Electron/GTK apps.
+```bash
+./scripts/force-system-titlebars.sh   # Remove system titlebars
+./scripts/restore-system-titlebars.sh # Restore system titlebars
+```
+**Use when:** Apps show two titlebars (KDE + app colored).
+
+### fix-sddm-input.sh
+Fix SDDM login screen input after sleep.
+```bash
+sudo ./scripts/fix-sddm-input.sh
+```
+**Use when:** SDDM login screen doesn't accept keyboard input after wake.
+
 ---
 
-## Frozen Configuration
+## Hardware-Agnostic Configuration
 
-The `configs/frozen-2024-12-30/` contains known-good settings after extensive troubleshooting.
+The restore kit now uses **hardware detection** instead of frozen configs. Settings are applied conditionally based on your detected hardware:
 
-### Why Freeze?
+### How It Works
 
-Optimized for:
-- ASUS TUF Gaming F15 (i7-12700H + RTX 3070)
-- Triple 1440p monitors (165Hz/144Hz)
-- Wayland + KWin compositor
-- Hybrid Intel/NVIDIA GPU
+1. **Detection Phase** (step 2/23 of restore.sh)
+   - Runs `detect-hardware.sh --summary`
+   - Identifies GPU, display, storage, RAM, peripherals
 
-### Critical Settings
+2. **Optimization Phase** (step 20/23 of restore.sh)
+   - Runs `apply-optimizations.sh`
+   - Applies only relevant settings for your hardware
 
-| File | Key Settings |
-|------|--------------|
-| `etc-environment` | `KWIN_DRM_NO_DIRECT_SCANOUT=1` |
-| `kwinrc` | Blur disabled, safe effects only |
-| `kwinoutputconfig.json` | DDC/CI disabled, VRR disabled |
-| `kwinrulesrc` | No global opacity rules |
-| `firefox.conf` | `MOZ_USE_XINPUT2=1` |
+### Critical Settings (Applied Conditionally)
 
-### Restore Frozen Config
+| Setting | Applied When | Why |
+|---------|--------------|-----|
+| `nvidia_drm.modeset=1` | NVIDIA GPU detected | Wayland support |
+| `KWIN_DRM_NO_DIRECT_SCANOUT=1` | Multi-monitor + NVIDIA | Prevents framebuffer errors |
+| `POWERDEVIL_NO_DDCUTIL=1` | Hybrid GPU | Prevents DDC I2C crashes |
+| `vm.swappiness=133` | ZRAM detected | ZRAM optimization |
+| NVMe scheduler `kyber` | NVMe drive detected | Optimal I/O for NVMe |
 
-```bash
-./scripts/restore-frozen-config.sh
-# Logout/login
-```
+**See:** [docs/SETTINGS-DOCUMENTATION.md](docs/SETTINGS-DOCUMENTATION.md) for complete details.
 
 ---
 
@@ -213,13 +225,12 @@ Optimized for:
 | [QUICK-REFERENCE.md](docs/QUICK-REFERENCE.md) | Daily commands cheat sheet |
 | [CHANGELOG.md](docs/CHANGELOG.md) | All changes with rollback commands |
 | [KWIN-HYBRID-GPU.md](docs/KWIN-HYBRID-GPU.md) | Hybrid GPU (Intel+NVIDIA) solutions |
-| [COMIC-AI-WORKFLOW.md](docs/COMIC-AI-WORKFLOW.md) | Production workflow for comic consistency (style/characters/animation) |
-| [HERO-PROMPTS.md](docs/HERO-PROMPTS.md) | Reusable prompt kit for character sheets, outfits, angles, and consistency |
-| [HEROES-TOM1.yaml](docs/HEROES-TOM1.yaml) | Canon character roster and generation order for volume 1 |
-| [HERO-PROMPTS-TOM1.md](docs/HERO-PROMPTS-TOM1.md) | Ready prompt stubs for Dima, Mila, Vika, Navigator, Atos, Aramis, Bundla, Klim |
-| [GEOGRAF-CHARACTERS-FULL.md](docs/GEOGRAF-CHARACTERS-FULL.md) | Full canon character file (appearance, clothing, traits, age-by-volume, notes) |
-| [GEOGRAF-CHARACTER-AGE-MAP.md](docs/GEOGRAF-CHARACTER-AGE-MAP.md) | Full canon character list with ages across volumes |
-| [GEOGRAF-CHARACTERS-CANON.yaml](docs/GEOGRAF-CHARACTERS-CANON.yaml) | Machine-readable canon roster with age-by-volume lines |
+| [HARDWARE-AGNOSTIC-ARCHITECTURE.md](docs/HARDWARE-AGNOSTIC-ARCHITECTURE.md) | Hardware detection & conditional optimization design |
+| [SETTINGS-DOCUMENTATION.md](docs/SETTINGS-DOCUMENTATION.md) | Every setting documented with why/when/rollback |
+| [EPIC-IMPLEMENTATION-STATUS.md](docs/EPIC-IMPLEMENTATION-STATUS.md) | Progress tracking against success criteria |
+| [SLEEP-WAKE-ISSUES.md](docs/SLEEP-WAKE-ISSUES.md) | Sleep/wake troubleshooting guide |
+| [WINDOW-RULES.md](docs/WINDOW-RULES.md) | KWin window rules reference |
+| [ZSH-OMZ-GUIDE.md](docs/ZSH-OMZ-GUIDE.md) | Zsh and Oh My Zsh configuration guide |
 
 ---
 
