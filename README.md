@@ -2,22 +2,22 @@
 
 Complete backup, restore, and system configuration management for Garuda KDE Linux.
 
+**Hardware-Agnostic:** Works on any Garuda Linux system — laptop, desktop, VM — with automatic hardware detection and conditional optimization application.
+
 ---
 
 ## Quick Start
 
 ```bash
 # Backup your system
-./scripts/backup-settings.sh
+./scripts/backup.sh
 
 # Restore on fresh install
 ./scripts/restore.sh
 
-# Restore frozen config (after breaking changes)
-./scripts/restore-frozen-config.sh
-
 # System health check
-check
+check           # Quick check (10 areas)
+check --deep    # Deep analysis (18 areas)
 
 # System update & maintenance
 update
@@ -25,40 +25,48 @@ update
 
 ---
 
+## What's New: Hardware-Agnostic Restore Kit
+
+The restore kit now **automatically detects your hardware** and applies only the optimizations that are relevant:
+
+| Hardware Feature | Detection | Applied Optimization |
+|-----------------|-----------|---------------------|
+| **NVIDIA GPU** | lspci | `nvidia_drm.modeset=1`, framebuffer fixes |
+| **AMD GPU** | lspci | `amdgpu.sg_display=0` (flicker fix) |
+| **Intel GPU** | lspci | `i915.enable_psr=0` (tearing fix) |
+| **Hybrid GPU** | Intel + NVIDIA/AMD | DDC/CI disable, power management |
+| **Multi-Monitor** | Display detection | KWin DRM fixes, compositor tuning |
+| **NVMe SSD** | Block device detection | `kyber` I/O scheduler |
+| **ASUS Laptop** | asusctl availability | Power profiles, fan curves |
+| **ZRAM** | /dev/zram detection | Swappiness optimization (133) |
+
+**No manual editing required** — the restore kit adapts to your hardware.
+
+---
+
 ## Project Structure
 
 ```
 garuda-restore/
-├── README.md                    # This file
-├── CLAUDE.md                    # AI assistant instructions
-├── configs/
-│   └── frozen-2024-12-30/       # Frozen known-good configuration
-│       ├── etc-environment      # /etc/environment backup
-│       ├── kwinrc               # KWin compositor config
-│       ├── kwinoutputconfig.json # Display settings
-│       ├── kwinrulesrc          # Window rules
-│       └── firefox.conf         # Firefox environment
+├── README.md                        # This file
+├── CLAUDE.md                        # AI assistant instructions
 ├── docs/
-│   ├── SYSTEM-STATE.md          # Current config & WHY each setting
-│   ├── QUICK-REFERENCE.md       # Cheat sheet for daily use
-│   ├── CHANGELOG.md             # All changes with rollback commands
-│   └── KWIN-HYBRID-GPU.md       # Hybrid GPU troubleshooting
-├── packages/
-│   ├── explicitly-installed.txt # Pacman packages
-│   └── aur-packages.txt         # AUR packages
-└── scripts/
-    ├── backup-settings.sh       # Full system backup
-    ├── restore.sh               # One-click restore wrapper
-    ├── restore-settings.sh      # Full restore logic
-    ├── restore-frozen-config.sh # Restore frozen config only
-    ├── system-health-check.sh   # Interactive health check (check)
-    ├── system-update.sh         # Update & maintenance (update)
-    ├── daily-backup.sh          # Automated backup with notifications
-    ├── setup-daily-backup.sh    # Configure daily backup timer
-    ├── daily-drive-sync.sh      # Sync to external backup drive
-    ├── setup-drive-sync.sh      # Configure drive sync timer
-    ├── setup-zsh.sh             # ZSH shell configuration
-    └── setup-zoxide.sh          # Zoxide directory jumper
+│   ├── HARDWARE-AGNOSTIC-ARCHITECTURE.md  # Architecture design
+│   ├── SETTINGS-DOCUMENTATION.md          # Every setting explained
+│   ├── SYSTEM-STATE.md                    # Current frozen config
+│   ├── QUICK-REFERENCE.md                 # Daily commands
+│   ├── CHANGELOG.md                       # Version history
+│   └── ...                                # Other documentation
+├── scripts/
+│   ├── backup.sh                          # Full system backup
+│   ├── restore.sh                         # One-click restore
+│   └── tools/
+│       ├── detect-hardware.sh             # Hardware detection (NEW)
+│       ├── apply-optimizations.sh         # Conditional optimizations (NEW)
+│       ├── system-health-check.sh         # check command
+│       └── system-update.sh               # update command
+└── pacman-hooks/
+    └── track-installs.hook                # Package tracking
 ```
 
 ---
