@@ -1,8 +1,65 @@
 # Sleep/Wake Issues - Troubleshooting History
 
-## Status: REVERTED TO DEFAULTS (2025-12-31)
+## Current Status: TARGETED FIX AVAILABLE (2026-03-07)
 
-All sleep "fixes" caused system instability (thermal reboots). Reverted to system defaults.
+### Decision Guide: Should You Apply This Fix?
+
+| Your Symptom | Action |
+|--------------|--------|
+| Login screen works after sleep, but **desktop freezes after login** | **Apply the fix** (this document) |
+| Login screen itself is frozen (can't type password) | Try `fix-sddm-input.sh` instead |
+| System wakes fine, no freezes | **Do nothing** - defaults work |
+| Fix causes thermal issues or instability | **Rollback** to defaults |
+
+### Active Fix: KWin Compositor Freeze
+
+**Applies to:** KDE Plasma Wayland with hybrid GPU (Intel + NVIDIA)
+
+Run this script to apply the KWin recovery fix:
+```bash
+sudo ./scripts/fix-sleep-kwin.sh
+```
+
+This installs a sleep hook that:
+1. Resets Intel backlight controller after wake (common freeze source)
+2. Forces DRM/display subsystem reprobe
+3. Restarts KWin compositor via D-Bus with proper user session context
+4. Logs GPU power state before/after for thermal validation
+
+**Logs:** `/var/log/kwin-sleep.log`
+
+**Log Retention:** See [Log File Management](#log-file-management) below for rotation and truncation guidance.
+
+**Verify Success:**
+```bash
+# After suspend and wake, check:
+tail /var/log/kwin-sleep.log
+# Should show "KWin restart SUCCESS" and "RESUME COMPLETE"
+
+# System should be responsive after login
+ps aux | grep kwin_wayland  # Should show running process
+```
+
+**Rollback to Defaults:**
+```bash
+sudo rm -f /usr/lib/systemd/system-sleep/99-kwin-fix
+sudo udevadm control --reload-rules
+```
+
+---
+
+## Historical Status: REVERTED TO DEFAULTS (2025-12-31)
+
+All previous sleep "fixes" caused system instability (thermal reboots). Reverted to system defaults.
+
+**Why those fixes failed:** They modified GRUB kernel parameters and NVIDIA driver behavior, which caused thermal cascade on this hybrid GPU system.
+
+**Why this fix is different:** It does NOT change kernel parameters or driver settings. It only:
+- Resets display backlight state (hardware-level, no driver changes)
+- Triggers existing kernel subsystems (DRM, input)
+- Restarts the frozen userspace compositor (KWin)
+
+The fix works *with* the system defaults, not against them.
 
 ---
 
@@ -214,4 +271,85 @@ journalctl -b | grep -iE "suspend|resume|wake|atomic|dpms"
 
 ## Lesson Learned
 
-> On hybrid GPU laptops with KDE Wayland, **don't try to "fix" sleep**. The default s2idle mode is the safest option until upstream fixes land. Aggressive power management causes more problems than it solves.
+> On hybrid GPU laptops with KDE Wayland, **don't try to "fix" sleep with kernel parameters or driver modifications**. The default s2idle mode is the safest option until upstream fixes land. Aggressive power management (GRUB params, NVIDIA framebuffer hacks) causes more problems than it solves.
+
+> **Exception:** The targeted KWin compositor restart hook (`fix-sleep-kwin.sh`) is the approved fix for the specific symptom of **post-login freeze after sleep**. This fix works at the userspace level without modifying kernel or driver behavior, making it safe to use alongside default system settings.
+
+### Recommendation Hierarchy
+
+1. **First:** Use system defaults (s2idle, no GRUB modifications)
+2. **If post-login freeze occurs:** Apply `fix-sleep-kwin.sh` (userspace compositor restart only)
+3. **If login screen input is frozen:** Try `fix-sddm-input.sh` (input module reload)
+4. **Never:** Modify GRUB with `nvidia_drm.fbdev=1`, `mem_sleep_default=deep`, or similar on this hardware
+5. **Always:** Rollback any fix that causes thermal instability
+
+---
+
+## Log File Management
+
+### Custom Sleep Hook Logs
+
+The sleep fix scripts create log files that can grow unbounded on frequently suspended systems:
+
+| Log File | Created By | Typical Size |
+|----------|------------|--------------|
+| `/var/log/kwin-sleep.log` | `fix-sleep-kwin.sh` | ~500 bytes per suspend cycle |
+| `/var/log/sddm-input-reset.log` | `fix-sddm-input.sh` | ~200 bytes per suspend cycle |
+
+**Example:** 10 suspend cycles/day = ~5KB/day = ~1.8MB/year per log file.
+
+### Automatic Rotation (Recommended)
+
+A logrotate configuration is provided in `scripts/kwin-sleep-logrotate.conf`. Install it with:
+
+```bash
+sudo cp scripts/kwin-sleep-logrotate.conf /etc/logrotate.d/kwin-sleep
+```
+
+**Manual alternative** (if you prefer not to use the config file):
+```bash
+sudo tee /etc/logrotate.d/kwin-sleep > /dev/null << 'EOF'
+/var/log/kwin-sleep.log /var/log/sddm-input-reset.log {
+    missingok
+    notifempty
+    size 100K
+    rotate 5
+    compress
+    delaycompress
+    create 0644 root root
+}
+EOF
+```
+
+**Policy:**
+- Rotate when file exceeds 100KB
+- Keep 5 rotated copies (max ~500KB total)
+- Compress old logs to save space
+
+### Manual Truncation (During Diagnostics)
+
+When actively debugging sleep issues, you may need to truncate logs:
+
+```bash
+# Safe truncation (preserves file, clears content)
+sudo truncate -s 0 /var/log/kwin-sleep.log
+sudo truncate -s 0 /var/log/sddm-input-reset.log
+
+# Alternative using shell redirection
+sudo sh -c '> /var/log/kwin-sleep.log'
+sudo sh -c '> /var/log/sddm-input-reset.log'
+```
+
+**⚠️ Do NOT use `rm`** during active diagnostics - the sleep hook expects the file to exist and will recreate it if missing, but this can cause race conditions.
+
+### Quick Health Check
+
+```bash
+# Check log sizes
+ls -lh /var/log/kwin-sleep.log /var/log/sddm-input-reset.log
+
+# Check rotation status
+logrotate -d /etc/logrotate.d/kwin-sleep 2>&1 | head -20
+```
+
+See also: [`docs/QUICK-REFERENCE.md`](QUICK-REFERENCE.md) for daily operational commands.

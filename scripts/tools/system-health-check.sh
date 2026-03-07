@@ -223,6 +223,32 @@ if [ -f "$HOME/.config/kwinrc" ]; then
         echo -e "Blur: ${GREEN}disabled${NC}"
     fi
 fi
+
+# Window Decoration Consistency Check
+echo ""
+echo -e "${BLUE}Window Decoration Consistency:${NC}"
+
+# Check GTK button layout setting
+if command -v gsettings &>/dev/null; then
+    GTK_LAYOUT=$(gsettings get org.gnome.desktop.wm.preferences button-layout 2>/dev/null)
+    if [ -n "$GTK_LAYOUT" ]; then
+        # Check if buttons are on left (KDE default) or right (GNOME default)
+        if [[ "$GTK_LAYOUT" == *":minimize"* ]] || [[ "$GTK_LAYOUT" == *":close"* ]]; then
+            echo -e "GTK layout: ${YELLOW}$GTK_LAYOUT (buttons on right)${NC}"
+            ISSUES+=("GTK window buttons on right (inconsistent with KDE)")
+            FIXES+=("MANUAL:gsettings set org.gnome.desktop.wm.preferences button-layout 'close,minimize,maximize:'")
+        else
+            echo -e "GTK layout: ${GREEN}$GTK_LAYOUT (buttons on left)${NC}"
+        fi
+    else
+        echo -e "GTK layout: ${YELLOW}not configured${NC}"
+        ISSUES+=("GTK button layout not set")
+        FIXES+=("MANUAL:See docs/QUICK-REFERENCE.md → Window Button Consistency")
+    fi
+else
+    echo -e "GTK layout: ${YELLOW}gsettings not available${NC}"
+fi
+
 echo ""
 
 # ============================================
@@ -591,9 +617,16 @@ if [[ "$REPLY" =~ ^[Yy]$ ]]; then
         echo -e "${CYAN}[$((i+1))/${#FIXES[@]}] ${ISSUES[$i]}${NC}"
         echo "Command: $FIX"
 
-        # Skip informational fixes
-        if [[ "$FIX" == *"System Settings"* ]] || [[ "$FIX" == *"Close unused"* ]] || [[ "$FIX" == *"Clean cooling"* ]]; then
+        # Skip informational/manual fixes (prefixed with MANUAL:)
+        if [[ "$FIX" == "MANUAL:"* ]] || \
+           [[ "$FIX" == *"System Settings"* ]] || \
+           [[ "$FIX" == *"Close unused"* ]] || \
+           [[ "$FIX" == *"Clean cooling"* ]]; then
             echo -e "${YELLOW}→ Manual action required${NC}"
+            # Show the actual command after MANUAL: prefix if present
+            if [[ "$FIX" == "MANUAL:"* ]]; then
+                echo "   ${FIX#MANUAL:}"
+            fi
             echo ""
             continue
         fi

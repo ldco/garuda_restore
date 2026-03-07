@@ -73,4 +73,6 @@ packages/          # Package lists for restore
 
 ## Context
 Read: .claude-data/context.md
-Config: .claude/config.json
+Claude Config: .claude/config.json
+Codex Config: ~/.codex/
+Qwen Code Config: ~/.qwen-code/, ~/.qwen/, ~/.config/qwen-code/

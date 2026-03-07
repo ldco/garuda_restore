@@ -15,6 +15,122 @@ Desktop:    KDE Plasma 6 (Wayland)
 
 ---
 
+## Window Button Consistency
+
+### The Problem
+
+KDE Plasma controls window button layout (Close/Minimize/Maximize on left/right) for **Qt/KWin** windows only.
+GTK/libadwaita and Electron/Chromium apps use their **own** settings, causing inconsistent button placement:
+
+| App Family | Button Control | Default Behavior |
+|------------|----------------|------------------|
+| **Qt/KWin native** (Dolphin, Kate, Konsole) | KDE System Settings | Follows KDE theme |
+| **GTK 3/4** (GIMP, Inkscape, Files) | GTK `org.gnome.desktop.wm.preferences` | Buttons on right (GNOME default) |
+| **libadwaita** (modern GTK apps) | Hardcoded in app | Often ignores system |
+| **Electron/Chromium** (VSCode, Chrome, Discord) | Chrome flags + KDE rule | Mixed behavior |
+
+### Expected Behavior Boundary
+
+**KDE System Settings → Window Management → Window Decorations → Buttons:**
+- Controls: Qt/KWin native applications only
+- Does NOT control: GTK, libadwaita, Electron, Firefox, Chrome
+
+### Per-App Alignment Actions
+
+#### 1. GTK 3/4 Applications (GIMP, Inkscape, Files, etc.)
+
+Set GNOME button layout to match KDE:
+
+```bash
+# Buttons on LEFT (KDE default)
+gsettings set org.gnome.desktop.wm.preferences button-layout 'close,minimize,maximize:'
+
+# Buttons on RIGHT (GNOME default)
+gsettings set org.gnome.desktop.wm.preferences button-layout ':minimize,maximize,close'
+```
+
+**Verify:**
+```bash
+gsettings get org.gnome.desktop.wm.preferences button-layout
+```
+
+**Note:** Some GTK apps cache this setting. Restart app after changing.
+
+#### 2. Electron/Chromium Applications (VSCode, Chrome, Discord, Brave)
+
+**Method A: Chrome/Chromium flag** (Chrome, Chromium, Brave, Edge)
+```bash
+# In browser address bar:
+chrome://flags/#gtk-title-bar
+# Set to: Disabled (uses native KDE title bar)
+```
+
+**Method B: VSCode specific**
+```json
+// settings.json
+"window.titleBarStyle": "native",
+"window.menuBarVisibility": "toggle"
+```
+
+**Method C: Other Electron apps (Discord, Slack, etc.)**
+Some Electron apps support native titlebar via command-line flag:
+```bash
+# Launch with:
+app-name --enable-features=UseOzonePlatform --ozone-platform=wayland
+```
+Or check app settings for "Use system title bar" option.
+
+#### 3. Firefox
+
+```bash
+# In about:config
+widget.gtk.decorations.rounding = 0
+widget.gtk.adwaita.force = false
+```
+
+Then set button layout in `userChrome.css` or use KDE's window rules.
+
+#### 4. Apps That Cannot Be Fixed
+
+Some applications **cannot** be forced to use KDE button layout:
+
+| App | Reason | Workaround |
+|-----|--------|------------|
+| **libadwaita apps** (GNOME 40+) | Hardcoded CSD (client-side decorations) | Accept inconsistency or use alternative app |
+| **Flatpak apps** | Sandboxed, ignore host gsettings | `flatpak override --user --env=GTK_CSD=0 app-id` |
+| **Some Electron apps** | No native titlebar support | Use app's built-in theme settings |
+
+**Note:** The KWin rule "No titlebar and frame" **removes decorations entirely** - it does NOT make KDE draw the titlebar. This is only useful if you want borderless windows, not for button consistency.
+
+### Verification
+
+After applying fixes, verify button consistency:
+
+**1. Check GTK setting (primary fix):**
+```bash
+gsettings get org.gnome.desktop.wm.preferences button-layout
+# Expected: 'close,minimize,maximize:' (buttons on LEFT)
+# If shows: ':minimize,maximize,close' (buttons on RIGHT - wrong)
+```
+
+**2. Verify per-app settings:**
+
+| App | Verification |
+|-----|--------------|
+| **Chrome/Brave** | `chrome://flags/#gtk-title-bar` → Should show "Disabled" |
+| **VSCode** | Open `settings.json` → `"window.titleBarStyle": "native"` |
+| **Flatpak apps** | `flatpak info --show-permissions app-id` → Check for `GTK_CSD=0` |
+
+**3. Visual check:**
+Open one of each app type and confirm button placement:
+- Native KDE app (Dolphin, Kate) → Buttons on left
+- GTK app (GIMP, Inkscape) → Should match KDE after fix
+- Electron app (VSCode, Chrome) → Should match KDE after fix
+
+**Note:** The `kwinrulesrc` check for `SpecialWindowSettings` is **legacy/optional** - it only applies if you previously created manual KWin window rules. Current guidance uses `gsettings` and per-app settings instead.
+
+---
+
 ## Critical Configuration Files
 
 ### 1. /etc/environment

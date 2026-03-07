@@ -518,9 +518,9 @@ else
 fi
 
 # ============================================================================
-# 17. RESTORE AI TOOLS (ComfyUI, Fooocus) - FULL SETUP WITH MODELS
+# 17. RESTORE AI TOOLS (Claude Code, Codex, Qwen Code, ComfyUI, Fooocus)
 # ============================================================================
-echo "[17/22] Setting up AI tools (ComfyUI, Fooocus)..."
+echo "[17/22] Setting up AI tools (Claude Code, Codex, Qwen Code, ComfyUI, Fooocus)..."
 echo "   This will download ~75GB of models. Skip with Ctrl+C if not needed."
 echo ""
 
@@ -542,6 +542,38 @@ if [ -d "$BACKUP_DIR/ai-tools" ]; then
         [ -d "$BACKUP_DIR/ai-tools/claude-code/knowledge" ] && cp -r "$BACKUP_DIR/ai-tools/claude-code/knowledge" "$HOME/.claude/"
 
         echo "   ✓ Claude Code config restored"
+    fi
+
+    # Codex config (always restore - no prompt needed)
+    if [ -d "$BACKUP_DIR/ai-tools/codex" ]; then
+        echo "   Restoring Codex configuration..."
+        mkdir -p "$HOME/.codex"
+        rsync -a "$BACKUP_DIR/ai-tools/codex/" "$HOME/.codex/" 2>/dev/null || true
+        echo "   ✓ Codex config restored"
+    fi
+
+    # Qwen Code config (always restore - no prompt needed)
+    if [ -d "$BACKUP_DIR/ai-tools/qwen-code" ]; then
+        echo "   Restoring Qwen Code configuration..."
+
+        [ -f "$BACKUP_DIR/ai-tools/qwen-code/.qwen-code.json" ] && cp "$BACKUP_DIR/ai-tools/qwen-code/.qwen-code.json" "$HOME/"
+
+        if [ -d "$BACKUP_DIR/ai-tools/qwen-code/home-dot-qwen-code" ]; then
+            mkdir -p "$HOME/.qwen-code"
+            rsync -a "$BACKUP_DIR/ai-tools/qwen-code/home-dot-qwen-code/" "$HOME/.qwen-code/" 2>/dev/null || true
+        fi
+
+        if [ -d "$BACKUP_DIR/ai-tools/qwen-code/home-dot-qwen" ]; then
+            mkdir -p "$HOME/.qwen"
+            rsync -a "$BACKUP_DIR/ai-tools/qwen-code/home-dot-qwen/" "$HOME/.qwen/" 2>/dev/null || true
+        fi
+
+        if [ -d "$BACKUP_DIR/ai-tools/qwen-code/config-qwen-code" ]; then
+            mkdir -p "$HOME/.config/qwen-code"
+            rsync -a "$BACKUP_DIR/ai-tools/qwen-code/config-qwen-code/" "$HOME/.config/qwen-code/" 2>/dev/null || true
+        fi
+
+        echo "   ✓ Qwen Code config restored"
     fi
 
     read -p "   Install ComfyUI + Fooocus with all AI models? [Y/n] " -n 1 -r
@@ -882,4 +914,3 @@ echo ""
 echo "  Fooocus:  cd ~/Fooocus && source venv/bin/activate && python entry_with_update.py"
 echo "            Open: http://127.0.0.1:7865"
 echo ""
-

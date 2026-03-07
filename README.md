@@ -75,6 +75,7 @@ garuda-restore/
 | **WiFi** | All saved networks + passwords |
 | **VPN** | WireGuard, OpenVPN, Mullvad, Tailscale |
 | **Docker** | Config, volumes, compose files |
+| **AI Coding Tools** | Claude Code, Codex, Qwen Code configs |
 
 ### Development Environments
 
@@ -204,6 +205,13 @@ Optimized for:
 | [QUICK-REFERENCE.md](docs/QUICK-REFERENCE.md) | Daily commands cheat sheet |
 | [CHANGELOG.md](docs/CHANGELOG.md) | All changes with rollback commands |
 | [KWIN-HYBRID-GPU.md](docs/KWIN-HYBRID-GPU.md) | Hybrid GPU (Intel+NVIDIA) solutions |
+| [COMIC-AI-WORKFLOW.md](docs/COMIC-AI-WORKFLOW.md) | Production workflow for comic consistency (style/characters/animation) |
+| [HERO-PROMPTS.md](docs/HERO-PROMPTS.md) | Reusable prompt kit for character sheets, outfits, angles, and consistency |
+| [HEROES-TOM1.yaml](docs/HEROES-TOM1.yaml) | Canon character roster and generation order for volume 1 |
+| [HERO-PROMPTS-TOM1.md](docs/HERO-PROMPTS-TOM1.md) | Ready prompt stubs for Dima, Mila, Vika, Navigator, Atos, Aramis, Bundla, Klim |
+| [GEOGRAF-CHARACTERS-FULL.md](docs/GEOGRAF-CHARACTERS-FULL.md) | Full canon character file (appearance, clothing, traits, age-by-volume, notes) |
+| [GEOGRAF-CHARACTER-AGE-MAP.md](docs/GEOGRAF-CHARACTER-AGE-MAP.md) | Full canon character list with ages across volumes |
+| [GEOGRAF-CHARACTERS-CANON.yaml](docs/GEOGRAF-CHARACTERS-CANON.yaml) | Machine-readable canon roster with age-by-volume lines |
 
 ---
 
@@ -243,6 +251,21 @@ asusctl profile -P Quiet        # Battery, silent
 ---
 
 ## Troubleshooting
+
+### Duplicate Titlebars (System + App Colored)
+
+Apps showing TWO titlebars (gray KDE one + app's colored one)?
+
+```bash
+# Remove system titlebars from Electron/GTK apps
+./scripts/force-system-titlebars.sh
+```
+
+This removes KDE decorations from apps that already have their own titlebars:
+- VSCode, Chrome, Brave, Discord, Slack
+- Only the app's colored titlebar remains
+
+For full guide: See `docs/SYSTEM-STATE.md` → "Duplicate Titlebars Fix"
 
 ### Mouse Lag / High CPU
 

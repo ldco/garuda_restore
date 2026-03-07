@@ -1,0 +1,197 @@
+project: comic_tom1
+version: 1
+notes:
+  - "Cloud-only pipeline: GPT-5.2 + gpt-image-1.5 + sora-2"
+  - "Do not mix production assets with local ComfyUI/Fooocus experiments"
+
+style_lock:
+  style_key: "tom1_main_style_v1"
+  line: "clean line art, controlled ink thickness"
+  color: "limited palette, stable skin tones"
+  shading: "soft cinematic shadows"
+  constraints:
+    - "no anatomy distortion"
+    - "exactly five fingers"
+    - "no random hairstyle changes"
+    - "no random accessories"
+
+characters_main:
+  - id: dima
+    name_ru: "Дима"
+    role: "main"
+    age_stage: "young_adult"
+    priority: "P0"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right, top_mild, low_mild]
+
+  - id: mila
+    name_ru: "Мила"
+    role: "main"
+    age_stage: "young_adult"
+    priority: "P0"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right, top_mild, low_mild]
+
+  - id: vika
+    name_ru: "Вика"
+    role: "main"
+    age_stage: "young_adult"
+    priority: "P0"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right, top_mild, low_mild]
+
+  - id: navigator
+    name_ru: "Навигатор"
+    role: "main"
+    age_stage: "adult"
+    priority: "P0"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right, top_mild, low_mild]
+
+  - id: atos
+    name_ru: "Атос"
+    role: "main"
+    age_stage: "adult"
+    priority: "P1"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right]
+
+  - id: aramis
+    name_ru: "Арамис"
+    role: "main"
+    age_stage: "adult"
+    priority: "P1"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right]
+
+  - id: bundla_navigatora
+    name_ru: "Бандла Навигатора"
+    role: "support"
+    age_stage: "unknown"
+    priority: "P1"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right]
+
+  - id: klim
+    name_ru: "Клим"
+    role: "main"
+    age_stage: "young_adult"
+    priority: "P1"
+    status: "draft"
+    look:
+      height_cm: null
+      body_type: null
+      face_markers: []
+      hair: null
+      eyes: null
+      signature_items: []
+    outfits:
+      casual: null
+      action: null
+      formal: null
+    required_views: [front, q3_left, left_profile, back, right_profile, q3_right]
+
+characters_npc_candidates:
+  - id: npc_01
+    name_ru: "TBD"
+    role: "npc"
+    function_in_story: null
+    episodes: []
+    status: "todo"
+
+  - id: npc_02
+    name_ru: "TBD"
+    role: "npc"
+    function_in_story: null
+    episodes: []
+    status: "todo"
+
+  - id: npc_03
+    name_ru: "TBD"
+    role: "npc"
+    function_in_story: null
+    episodes: []
+    status: "todo"
+
+generation_order:
+  - "Finalize Dima, Mila, Vika, Navigator first (P0)"
+  - "Then Atos, Aramis, Klim, Bundla Navigatora (P1)"
+  - "Then lock NPC set by chapter"
+

@@ -15,6 +15,23 @@ ps aux | grep kwin                    # KWin CPU usage
 sensors                               # Temperatures
 ```
 
+## Duplicate Titlebars Fix
+
+**Problem:** Apps show TWO titlebars - KDE system titlebar + app's colored titlebar.
+
+```bash
+# Remove duplicate system titlebars
+~/garuda-restore/scripts/force-system-titlebars.sh
+```
+
+This removes KDE decorations from apps that already have their own titlebars:
+- VSCode, Chrome, Brave, Discord, Slack
+- Only the app's colored titlebar remains
+
+**Note:** "No titlebar and frame" KWin rule removes decorations entirely - use the script instead.
+
+See `docs/SYSTEM-STATE.md` "Duplicate Titlebars Fix" for full guide.
+
 ## If Something Goes Wrong
 
 ### Mouse Lag / System Slow
@@ -64,6 +81,37 @@ cp firefox.conf ~/.config/environment.d/
 | GPU State | P5 (idle), P0-P2 (gaming) |
 | GPU Power | 20-30W (idle), 100W+ (gaming) |
 | CPU Temp | 40-60C (idle), 80-95C (load) |
+
+## Log File Retention
+
+Sleep fix scripts create log files that can grow unbounded on frequently suspended systems.
+
+**Automatic rotation** (recommended):
+```bash
+# Use the provided config file
+sudo cp scripts/kwin-sleep-logrotate.conf /etc/logrotate.d/kwin-sleep
+
+# Or create manually
+sudo tee /etc/logrotate.d/kwin-sleep > /dev/null << 'EOF'
+/var/log/kwin-sleep.log /var/log/sddm-input-reset.log {
+    missingok
+    notifempty
+    size 100K
+    rotate 5
+    compress
+    delaycompress
+    create 0644 root root
+}
+EOF
+```
+
+**Manual truncation** (during diagnostics):
+```bash
+sudo truncate -s 0 /var/log/kwin-sleep.log
+sudo truncate -s 0 /var/log/sddm-input-reset.log
+```
+
+See `docs/SLEEP-WAKE-ISSUES.md` "Log File Management" for full guidance.
 
 ## DO NOT
 

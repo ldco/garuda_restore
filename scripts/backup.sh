@@ -569,9 +569,9 @@ sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/system/" 2>/dev/null || true
 echo "   ✓ System configs backed up"
 
 # ============================================================================
-# 16. AI TOOLS (ComfyUI, Fooocus, Claude Code) - CONFIG ONLY, NOT MODELS
+# 16. AI TOOLS (ComfyUI, Fooocus, Claude Code, Codex, Qwen Code) - CONFIG ONLY, NOT MODELS
 # ============================================================================
-echo "[16/18] Backing up AI tools configuration (ComfyUI, Fooocus, Claude Code)..."
+echo "[16/18] Backing up AI tools configuration (ComfyUI, Fooocus, Claude Code, Codex, Qwen Code)..."
 
 mkdir -p "$BACKUP_DIR/ai-tools"
 
@@ -594,6 +594,25 @@ if [ -d "$HOME/.claude" ] || [ -f "$HOME/.claude.json" ]; then
     [ -d "$HOME/.claude/knowledge" ] && cp -r "$HOME/.claude/knowledge" "$BACKUP_DIR/ai-tools/claude-code/"
 
     echo "   ✓ Claude Code config backed up"
+fi
+
+# Codex CLI / Codex config
+if [ -d "$HOME/.codex" ]; then
+    mkdir -p "$BACKUP_DIR/ai-tools/codex"
+    rsync -a "$HOME/.codex/" "$BACKUP_DIR/ai-tools/codex/" 2>/dev/null || true
+    echo "   ✓ Codex config backed up"
+fi
+
+# Qwen Code config (supports common locations)
+if [ -d "$HOME/.qwen-code" ] || [ -d "$HOME/.qwen" ] || [ -d "$HOME/.config/qwen-code" ] || [ -f "$HOME/.qwen-code.json" ]; then
+    mkdir -p "$BACKUP_DIR/ai-tools/qwen-code"
+
+    [ -f "$HOME/.qwen-code.json" ] && cp "$HOME/.qwen-code.json" "$BACKUP_DIR/ai-tools/qwen-code/"
+    [ -d "$HOME/.qwen-code" ] && rsync -a "$HOME/.qwen-code/" "$BACKUP_DIR/ai-tools/qwen-code/home-dot-qwen-code/" 2>/dev/null || true
+    [ -d "$HOME/.qwen" ] && rsync -a "$HOME/.qwen/" "$BACKUP_DIR/ai-tools/qwen-code/home-dot-qwen/" 2>/dev/null || true
+    [ -d "$HOME/.config/qwen-code" ] && rsync -a "$HOME/.config/qwen-code/" "$BACKUP_DIR/ai-tools/qwen-code/config-qwen-code/" 2>/dev/null || true
+
+    echo "   ✓ Qwen Code config backed up"
 fi
 
 # ComfyUI - backup config, custom nodes list, workflows (NOT models ~70GB)

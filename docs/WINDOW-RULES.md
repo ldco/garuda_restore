@@ -2,6 +2,27 @@
 
 Configuration for placing applications on specific monitors at startup.
 
+---
+
+## Window Button Consistency
+
+**Problem:** Some apps show duplicate titlebars - both KDE system titlebar AND the app's own colored titlebar.
+
+### Quick Fix - Remove Duplicate Titlebars
+
+Run the script to remove system titlebars from Electron/GTK apps:
+
+```bash
+~/garuda-restore/scripts/force-system-titlebars.sh
+```
+
+This configures KWin to **not decorate** apps that already have their own titlebars (CSD):
+- VS Code, Chrome, Brave, Discord, Slack
+- Only the app's colored titlebar will show
+- No more duplicate titlebars in the top-left corner
+
+---
+
 ## Monitor Layout
 
 | Output | Position | Resolution | Description |
