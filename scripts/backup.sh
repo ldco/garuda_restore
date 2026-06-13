@@ -46,12 +46,12 @@ if [ "$DAEMON_MODE" = true ]; then
     log "Starting scheduled backup"
     notify "🔄 Garuda Backup Started" "Preparing backup...\nYou will be asked for your password." "system-run" "normal"
 
-    # GUI sudo authentication
+    # Show GUI sudo prompt ONCE at startup — never retry in a loop
     ASKPASS_SCRIPT=$(mktemp)
     cat > "$ASKPASS_SCRIPT" << 'ASKPASS_EOF'
 #!/bin/bash
 if command -v kdialog &>/dev/null; then
-    kdialog --password "Garuda Backup requires administrator privileges.\n\nEnter your password:" --title "🔐 Garuda Backup"
+    kdialog --password "Garuda Backup requires administrator privileges.\n\nEnter your password:" --title "Garuda Backup"
 elif command -v zenity &>/dev/null; then
     zenity --password --title="Garuda Backup"
 else
@@ -61,25 +61,29 @@ ASKPASS_EOF
     chmod +x "$ASKPASS_SCRIPT"
     export SUDO_ASKPASS="$ASKPASS_SCRIPT"
 
-    if ! sudo -A -v 2>/dev/null && ! sudo -v 2>/dev/null; then
-        log "ERROR: Sudo authentication failed"
-        notify "❌ Garuda Backup Cancelled" "Authentication failed." "dialog-error" "critical"
+    if sudo -A -v 2>/dev/null; then
+        log "Sudo authenticated via GUI — privileged operations enabled"
+        SUDO_AVAILABLE=true
         rm -f "$ASKPASS_SCRIPT"
-        exit 1
+        (while true; do sleep 60; sudo -n -v 2>/dev/null || break; done) &
+        SUDO_PID=$!
+        trap "kill $SUDO_PID 2>/dev/null" EXIT
+    else
+        log "No sudo (GUI prompt failed or timed out) — privileged operations skipped"
+        SUDO_AVAILABLE=false
+        rm -f "$ASKPASS_SCRIPT"
     fi
-    rm -f "$ASKPASS_SCRIPT"
-    log "Sudo authenticated"
-
-    # Keep sudo alive
-    (while true; do sleep 60; sudo -n -v 2>/dev/null || break; done) &
-    SUDO_PID=$!
-    trap "kill $SUDO_PID 2>/dev/null" EXIT
-
-    notify "⏳ Garuda Backup In Progress" "Backing up packages, configs, KDE settings...\nThis may take several minutes." "document-save" "normal"
 else
     log() { echo "$1"; }
     notify() { :; }
+    SUDO_AVAILABLE=true  # Manual mode: user is present, terminal sudo is fine
 fi
+
+try_sudo() {
+    if [[ "$SUDO_AVAILABLE" == "true" ]]; then
+        sudo "$@" 2>/dev/null || true
+    fi
+}
 
 mkdir -p "$BACKUP_DIR"/{packages,systemd,system,wallpapers,security,networks,browsers}
 
@@ -356,28 +360,28 @@ echo "   ✓ Dotfiles and git config backed up"
 echo "[10/18] Backing up network and VPN connections..."
 
 # Refresh sudo credentials (extend timeout)
-sudo -v 2>/dev/null || true
+try_sudo -v
 
 # NetworkManager connections (WiFi passwords, VPN configs, etc.)
-if sudo test -d "/etc/NetworkManager/system-connections"; then
-    sudo cp -r "/etc/NetworkManager/system-connections" "$BACKUP_DIR/networks/"
-    sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/networks/"
+if try_sudo test -d "/etc/NetworkManager/system-connections"; then
+    try_sudo cp -r "/etc/NetworkManager/system-connections" "$BACKUP_DIR/networks/"
+    try_sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/networks/"
     echo "   ✓ NetworkManager connections backed up"
 else
     echo "   Note: No NetworkManager connections found"
 fi
 
 # WireGuard configs
-if sudo test -d "/etc/wireguard"; then
-    sudo cp -r "/etc/wireguard" "$BACKUP_DIR/networks/"
-    sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/networks/wireguard" 2>/dev/null
+if try_sudo test -d "/etc/wireguard"; then
+    try_sudo cp -r "/etc/wireguard" "$BACKUP_DIR/networks/"
+    try_sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/networks/wireguard"
     echo "   ✓ WireGuard configs backed up"
 fi
 
 # OpenVPN configs
-if sudo test -d "/etc/openvpn/client"; then
-    sudo cp -r "/etc/openvpn" "$BACKUP_DIR/networks/"
-    sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/networks/openvpn" 2>/dev/null
+if try_sudo test -d "/etc/openvpn/client"; then
+    try_sudo cp -r "/etc/openvpn" "$BACKUP_DIR/networks/"
+    try_sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/networks/openvpn"
     echo "   ✓ OpenVPN configs backed up"
 fi
 
@@ -455,14 +459,15 @@ if command -v docker &> /dev/null && docker info &> /dev/null; then
     docker volume ls --format "{{.Name}}" > "$BACKUP_DIR/docker/volumes-list.txt" 2>/dev/null || true
     echo "   ✓ Docker images/containers list saved"
 
-    # Backup docker volumes (requires sudo)
-    sudo -v 2>/dev/null || true
-    if sudo test -d "/var/lib/docker/volumes"; then
-        echo "   Backing up Docker volumes (this may take a while)..."
-        sudo tar -czf "$BACKUP_DIR/docker/volumes-backup.tar.gz" -C /var/lib/docker volumes 2>/dev/null || true
-        sudo chown $(id -u):$(id -g) "$BACKUP_DIR/docker/volumes-backup.tar.gz" 2>/dev/null || true
-        echo "   ✓ Docker volumes backed up"
-    fi
+    # Backup docker volumes - DISABLED: too large, CPU-hungry
+    # Uncomment if you need Docker volume backups:
+    # sudo -v 2>/dev/null || true
+    # if sudo test -d "/var/lib/docker/volumes"; then
+    #     echo "   Backing up Docker volumes (this may take a while)..."
+    #     sudo tar -I pigz -cf "$BACKUP_DIR/docker/volumes-backup.tar.gz" -C /var/lib/docker volumes 2>/dev/null || true
+    #     sudo chown $(id -u):$(id -g) "$BACKUP_DIR/docker/volumes-backup.tar.gz" 2>/dev/null || true
+    #     echo "   ✓ Docker volumes backed up"
+    # fi
 else
     echo "   Docker not running, skipping container data"
 fi
@@ -543,28 +548,28 @@ echo "   ✓ Development configs backed up (caches excluded - will reinstall on 
 echo "[15/18] Backing up system configurations..."
 
 # Refresh sudo credentials
-sudo -v 2>/dev/null || true
+try_sudo -v
 
 # Copy system config files
-sudo cp "/etc/samba/smb.conf" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/pacman.conf" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/pacman.d/mirrorlist" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/default/grub" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/hosts" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/fstab" "$BACKUP_DIR/system/fstab.reference" 2>/dev/null || true
-sudo cp "/etc/environment" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp -r "/etc/modprobe.d" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp -r "/etc/udev/rules.d" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp -r "/etc/X11/xorg.conf.d" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/vconsole.conf" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/locale.conf" "$BACKUP_DIR/system/" 2>/dev/null || true
-sudo cp "/etc/hostname" "$BACKUP_DIR/system/" 2>/dev/null || true
+try_sudo cp "/etc/samba/smb.conf" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/pacman.conf" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/pacman.d/mirrorlist" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/default/grub" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/hosts" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/fstab" "$BACKUP_DIR/system/fstab.reference"
+try_sudo cp "/etc/environment" "$BACKUP_DIR/system/"
+try_sudo cp -r "/etc/modprobe.d" "$BACKUP_DIR/system/"
+try_sudo cp -r "/etc/udev/rules.d" "$BACKUP_DIR/system/"
+try_sudo cp -r "/etc/X11/xorg.conf.d" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/vconsole.conf" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/locale.conf" "$BACKUP_DIR/system/"
+try_sudo cp "/etc/hostname" "$BACKUP_DIR/system/"
 
 # Docker daemon config
-sudo cp "/etc/docker/daemon.json" "$BACKUP_DIR/system/" 2>/dev/null || true
+try_sudo cp "/etc/docker/daemon.json" "$BACKUP_DIR/system/"
 
 # Fix ownership
-sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/system/" 2>/dev/null || true
+try_sudo chown -R $(id -u):$(id -g) "$BACKUP_DIR/system/"
 
 echo "   ✓ System configs backed up"
 
@@ -750,7 +755,7 @@ BACKUP_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
 # Create compressed archive with readable date
 cd "$HOME"
 ARCHIVE_NAME="garuda-backup-${READABLE_DATE}.tar.gz"
-tar -czf "$ARCHIVE_NAME" "$(basename "$BACKUP_DIR")"
+tar -I pigz -cf "$ARCHIVE_NAME" "$(basename "$BACKUP_DIR")"
 
 echo "   ✓ Archive created: $HOME/$ARCHIVE_NAME"
 

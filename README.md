@@ -15,6 +15,9 @@ Complete backup, restore, and system configuration management for Garuda KDE Lin
 # Restore on fresh install
 ./scripts/restore.sh
 
+# Bootstrap a fresh Pop!_OS COSMIC install with closest portable UX
+./scripts/popos-cosmic-bootstrap.sh --backup-dir ~/garuda-backup-YYYY-MM-DD_HH-MM
+
 # System health check
 check           # Quick check (10 areas)
 check --deep    # Deep analysis (18 areas)
