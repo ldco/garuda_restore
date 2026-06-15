@@ -5,12 +5,19 @@ garuda-backup-*/
 # Temporary files
 temp/
 
-# Claude Code - Machine-specific (DO NOT COMMIT)
+# AI tool junk — auto-generated, machine-specific (DO NOT COMMIT)
 .claude.json
-.claude/settings.local.json
-.claude-data/sessions/
-.claude-data/tasks/
+.claude/
+.claude-data/
+.claude/
+.codex
+.codex/
+.qwen/
+.ralph-tui/
+.tausik/
 .rag/
+.kilo/
+.pm-contribution.md
 
 # Environment and secrets
 .env
