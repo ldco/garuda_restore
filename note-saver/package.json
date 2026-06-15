@@ -1,0 +1,10 @@
+{
+  "name": "note-saver",
+  "version": "1.0.0",
+  "description": "A simple CLI tool to save and read text notes",
+  "type": "module",
+  "bin": {
+    "note-saver": "./index.js"
+  },
+  "license": "MIT"
+}

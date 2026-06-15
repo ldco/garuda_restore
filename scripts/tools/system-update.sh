@@ -33,7 +33,7 @@ echo ""
 # ============================================
 # 1. SYSTEM UPDATE
 # ============================================
-echo -e "${BOLD}[1/6] System Update${NC}"
+echo -e "${BOLD}[1/9] System Update${NC}"
 echo "─────────────────────"
 
 read -p "Update system packages? [Y/n]: " UPDATE
@@ -58,7 +58,7 @@ echo ""
 # ============================================
 # 2. DAVINCI RESOLVE UPDATE CHECK
 # ============================================
-echo -e "${BOLD}[2/7] DaVinci Resolve Update${NC}"
+echo -e "${BOLD}[2/9] DaVinci Resolve Update${NC}"
 echo "─────────────────────"
 
 if pacman -Q davinci-resolve &>/dev/null; then
@@ -135,7 +135,7 @@ echo ""
 # ============================================
 # 3. CLEAN PACKAGE CACHE
 # ============================================
-echo -e "${BOLD}[3/7] Clean Package Cache${NC}"
+echo -e "${BOLD}[3/9] Clean Package Cache${NC}"
 echo "─────────────────────"
 
 CACHE_SIZE=$(du -sh /var/cache/pacman/pkg/ 2>/dev/null | cut -f1)
@@ -143,17 +143,29 @@ CACHE_MB=$(du -sm /var/cache/pacman/pkg/ 2>/dev/null | cut -f1)
 
 echo "Current cache size: $CACHE_SIZE"
 
-if [ -n "$CACHE_MB" ] && [ "$CACHE_MB" -gt 5000 ]; then
-    # Show what would be removed
+# Clean stale download temp directories (paru leaves these behind)
+STALE_DOWNLOADS=$(find /var/cache/pacman/pkg/ -maxdepth 1 -name 'download-*' -type d 2>/dev/null | wc -l)
+if [ "$STALE_DOWNLOADS" -gt 0 ]; then
+    echo -e "${YELLOW}Found $STALE_DOWNLOADS stale download directories${NC}"
+fi
+
+if [ -n "$CACHE_MB" ] && [ "$CACHE_MB" -gt 3000 ]; then
     SAVINGS=$(paccache -dk2 2>/dev/null | tail -1 | grep -oP '\d+\.\d+ \w+' || echo "unknown")
     echo "Can free: $SAVINGS (keeping 2 versions)"
 
     read -p "Clean package cache? [Y/n]: " CLEAN_CACHE
     if [[ ! "$CLEAN_CACHE" =~ ^[Nn]$ ]]; then
         sudo paccache -rk2
+        sudo rm -rf /var/cache/pacman/pkg/download-*
         echo -e "${GREEN}✓ Cache cleaned${NC}"
     else
         echo "Skipped"
+    fi
+elif [ "$STALE_DOWNLOADS" -gt 0 ]; then
+    read -p "Clean stale download directories? [Y/n]: " CLEAN_STALE
+    if [[ ! "$CLEAN_STALE" =~ ^[Nn]$ ]]; then
+        sudo rm -rf /var/cache/pacman/pkg/download-*
+        echo -e "${GREEN}✓ Stale downloads cleaned${NC}"
     fi
 else
     echo -e "${GREEN}Cache is reasonable size, skipping${NC}"
@@ -161,9 +173,37 @@ fi
 echo ""
 
 # ============================================
-# 4. REMOVE ORPHAN PACKAGES
+# 4. CLEAN AUR BUILD CACHE
 # ============================================
-echo -e "${BOLD}[4/7] Remove Orphan Packages${NC}"
+echo -e "${BOLD}[4/9] Clean AUR Build Cache${NC}"
+echo "─────────────────────"
+
+AUR_CACHE_SIZE=""
+if [ -d ~/.cache/paru ]; then
+    AUR_CACHE_SIZE=$(du -sh ~/.cache/paru 2>/dev/null | cut -f1)
+    echo "paru build cache: $AUR_CACHE_SIZE"
+elif [ -d ~/.cache/yay ]; then
+    AUR_CACHE_SIZE=$(du -sh ~/.cache/yay 2>/dev/null | cut -f1)
+    echo "yay build cache: $AUR_CACHE_SIZE"
+fi
+
+if [ -n "$AUR_CACHE_SIZE" ]; then
+    read -p "Clean AUR build cache (cloned repos, build artifacts)? [y/N]: " CLEAN_AUR
+    if [[ "$CLEAN_AUR" =~ ^[Yy]$ ]]; then
+        rm -rf ~/.cache/paru/ ~/.cache/yay/ 2>/dev/null
+        echo -e "${GREEN}✓ AUR build cache cleaned${NC}"
+    else
+        echo "Skipped"
+    fi
+else
+    echo "No AUR build cache found"
+fi
+echo ""
+
+# ============================================
+# 5. REMOVE ORPHAN PACKAGES
+# ============================================
+echo -e "${BOLD}[5/9] Remove Orphan Packages${NC}"
 echo "─────────────────────"
 
 ORPHANS=$(pacman -Qdt 2>/dev/null)
@@ -188,42 +228,97 @@ fi
 echo ""
 
 # ============================================
-# 5. CLEAN USER CACHE
+# 6. CLEAN DEV CACHES
 # ============================================
-echo -e "${BOLD}[5/7] Clean User Cache${NC}"
+echo -e "${BOLD}[6/9] Clean Dev Caches${NC}"
+echo "─────────────────────"
+
+# pip cache
+if command -v pip &>/dev/null; then
+    PIP_CACHE=$(du -sh ~/.cache/pip 2>/dev/null | cut -f1)
+    if [ -n "$PIP_CACHE" ]; then
+        echo "pip cache: $PIP_CACHE"
+        read -p "Purge pip cache? [y/N]: " CLEAN_PIP
+        if [[ "$CLEAN_PIP" =~ ^[Yy]$ ]]; then
+            pip cache purge 2>/dev/null || rm -rf ~/.cache/pip/
+            echo -e "${GREEN}✓ pip cache purged${NC}"
+        fi
+    fi
+fi
+
+# npm cache
+if command -v npm &>/dev/null; then
+    NPM_CACHE=$(npm cache ls 2>/dev/null | wc -l || echo 0)
+    NPM_SIZE=$(du -sh ~/.npm 2>/dev/null | cut -f1)
+    if [ -d ~/.npm ] && [ -n "$NPM_SIZE" ]; then
+        echo "npm cache: $NPM_SIZE"
+        read -p "Clean npm cache? [y/N]: " CLEAN_NPM
+        if [[ "$CLEAN_NPM" =~ ^[Yy]$ ]]; then
+            npm cache clean --force 2>/dev/null
+            echo -e "${GREEN}✓ npm cache cleaned${NC}"
+        fi
+    fi
+fi
+
+# yarn cache
+if command -v yarn &>/dev/null; then
+    YARN_SIZE=$(du -sh ~/.cache/yarn 2>/dev/null | cut -f1)
+    if [ -n "$YARN_SIZE" ]; then
+        echo "yarn cache: $YARN_SIZE"
+        read -p "Clean yarn cache? [y/N]: " CLEAN_YARN
+        if [[ "$CLEAN_YARN" =~ ^[Yy]$ ]]; then
+            yarn cache clean 2>/dev/null || rm -rf ~/.cache/yarn/
+            echo -e "${GREEN}✓ yarn cache cleaned${NC}"
+        fi
+    fi
+fi
+
+# puppeteer / playwright browser downloads
+for dir in ~/.cache/puppeteer ~/.cache/ms-playwright; do
+    if [ -d "$dir" ]; then
+        SIZE=$(du -sh "$dir" 2>/dev/null | cut -f1)
+        echo "$(basename "$dir") cache: $SIZE"
+    fi
+done
+
+echo ""
+
+# ============================================
+# 7. CLEAN USER CACHE
+# ============================================
+echo -e "${BOLD}[7/9] Clean User Caches${NC}"
 echo "─────────────────────"
 
 USER_CACHE=$(du -sh ~/.cache 2>/dev/null | cut -f1)
 echo "User cache size: $USER_CACHE"
 
-# Check for large cache directories
-LARGE_CACHES=""
-for dir in ~/.cache/thumbnails ~/.cache/mozilla ~/.cache/chromium ~/.cache/google-chrome ~/.cache/BraveSoftware ~/.cache/pip ~/.cache/yarn ~/.cache/npm; do
-    if [ -d "$dir" ]; then
-        SIZE=$(du -sm "$dir" 2>/dev/null | cut -f1)
-        if [ -n "$SIZE" ] && [ "$SIZE" -gt 500 ]; then
-            LARGE_CACHES="$LARGE_CACHES\n  $(du -sh "$dir" 2>/dev/null)"
-        fi
-    fi
-done
-
-if [ -n "$LARGE_CACHES" ]; then
-    echo -e "Large cache directories:$LARGE_CACHES"
-    echo ""
-    read -p "Clean thumbnails cache? [y/N]: " CLEAN_THUMBS
+THUMB_SIZE=$(du -sh ~/.cache/thumbnails 2>/dev/null | cut -f1)
+if [ -n "$THUMB_SIZE" ]; then
+    echo "thumbnails: $THUMB_SIZE"
+    read -p "Clean thumbnails? [y/N]: " CLEAN_THUMBS
     if [[ "$CLEAN_THUMBS" =~ ^[Yy]$ ]]; then
         rm -rf ~/.cache/thumbnails/*
         echo -e "${GREEN}✓ Thumbnails cleaned${NC}"
     fi
-else
-    echo -e "${GREEN}User cache is reasonable${NC}"
 fi
+
+# Inkscape cache (can grow large)
+INKSCAPE=$(du -sh ~/.cache/inkscape 2>/dev/null | cut -f1)
+if [ -n "$INKSCAPE" ]; then
+    echo "inkscape cache: $INKSCAPE"
+    read -p "Clean Inkscape cache? [y/N]: " CLEAN_INK
+    if [[ "$CLEAN_INK" =~ ^[Yy]$ ]]; then
+        rm -rf ~/.cache/inkscape/
+        echo -e "${GREEN}✓ Inkscape cache cleaned${NC}"
+    fi
+fi
+
 echo ""
 
 # ============================================
-# 6. CLEAN JOURNAL LOGS
+# 8. CLEAN JOURNAL LOGS
 # ============================================
-echo -e "${BOLD}[6/7] Clean Journal Logs${NC}"
+echo -e "${BOLD}[8/9] Clean Journal Logs${NC}"
 echo "─────────────────────"
 
 JOURNAL_SIZE=$(journalctl --disk-usage 2>/dev/null | grep -oP '\d+\.\d+\w+' || echo "unknown")
@@ -239,9 +334,9 @@ fi
 echo ""
 
 # ============================================
-# 7. ADDITIONAL MAINTENANCE
+# 9. ADDITIONAL MAINTENANCE
 # ============================================
-echo -e "${BOLD}[7/7] Additional Maintenance${NC}"
+echo -e "${BOLD}[9/9] Additional Maintenance${NC}"
 echo "─────────────────────"
 
 # Failed systemd services

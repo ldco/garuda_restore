@@ -61,11 +61,12 @@ ASKPASS_EOF
     chmod +x "$ASKPASS_SCRIPT"
     export SUDO_ASKPASS="$ASKPASS_SCRIPT"
 
-    if sudo -A -v 2>/dev/null; then
+    # Check if sudo cache is still valid (non-interactive, NEVER causes PAM failure)
+    if sudo -n true 2>/dev/null && sudo -A -v 2>/dev/null; then
         log "Sudo authenticated via GUI — privileged operations enabled"
         SUDO_AVAILABLE=true
         rm -f "$ASKPASS_SCRIPT"
-        (while true; do sleep 60; sudo -n -v 2>/dev/null || break; done) &
+        (while true; do sleep 60; sudo -n true 2>/dev/null || break; done) &
         SUDO_PID=$!
         trap "kill $SUDO_PID 2>/dev/null" EXIT
     else
@@ -76,12 +77,18 @@ ASKPASS_EOF
 else
     log() { echo "$1"; }
     notify() { :; }
-    SUDO_AVAILABLE=true  # Manual mode: user is present, terminal sudo is fine
+    # Manual mode: check sudo -n first (no PAM fail), then try tty auth
+    if sudo -n true 2>/dev/null || sudo -v 2>/dev/null; then
+        SUDO_AVAILABLE=true
+    else
+        log "No sudo available (no terminal or cache expired) — privileged operations skipped"
+        SUDO_AVAILABLE=false
+    fi
 fi
 
 try_sudo() {
     if [[ "$SUDO_AVAILABLE" == "true" ]]; then
-        sudo "$@" 2>/dev/null || true
+        sudo -n "$@" 2>/dev/null || true
     fi
 }
 

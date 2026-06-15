@@ -1,0 +1,13 @@
+[Unit]
+Description=Set battery charge limit to 80% and keyboard RGB
+After=multi-user.target
+After=asusd.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo 80 > /sys/class/power_supply/BAT1/charge_control_end_threshold'
+ExecStart=/usr/bin/asusctl aura effect static -cffffff
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

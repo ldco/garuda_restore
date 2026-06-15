@@ -1,6 +1,23 @@
 # Sleep/Wake Issues - Troubleshooting History
 
-## Current Status: TARGETED FIX AVAILABLE (2026-03-07)
+## Current Status: SLEEP DISABLED — NOT NEEDED (2026-06-14)
+
+**After 14 fix attempts across 6 months, sleep is fundamentally broken on this hardware (ASUS TUF F15 + KDE Wayland + NVIDIA hybrid GPU).**
+
+**Decision: Sleep disabled permanently.** This laptop is desk-bound, lid-always-open, plugged in. Sleep has zero practical value for this use case. Display off after inactivity covers 70% of idle power savings. Full shutdown for overnight.
+
+Root cause: upstream KWin Wayland bug on hybrid GPU systems. See [Is It Bad to Never Sleep?](#is-it-bad-to-never-sleep-the-pc) — hardware is unaffected.
+
+**Latest event (2026-06-14):** System hard-froze 42 seconds after resume from s2idle sleep. No errors logged — complete power cut. Required hard reboot. BTRFS confirmed unclean shutdown: `"Dirty bit is set. Fs was not properly unmounted"`.
+
+**All known fixes exhausted:**
+- S3 (deep sleep) → KWin atomic modeset crashes + thermal shutdowns at 96°C
+- s2idle (default) → GPU VRAM artifacts + random hard freezes (today's event)
+- NVIDIA GSP firmware toggle → VRAM corruption without GSP, freeze with GSP
+- KWin compositor restart hook → helps post-login freeze, doesn't prevent system-level freeze
+- GRUB kernel parameters (`fbdev=1`, `mem_sleep_default=deep`, `mem_sleep_default=s2idle`) → all caused thermal instability
+
+**Arch Wiki confirms:** "Manufacturers have stopped fixing bugs with the ACPI S3 state since systems shipping with Windows are encouraged to use Modern standby by default; if they have voluntarily not advertised it, it is probably broken in some way." On hybrid-graphics laptops (Intel + NVIDIA), both S3 and s2idle are unreliable until upstream KDE/NVIDIA fixes land. No timeline available.
 
 ### Primary Entrypoint: fix-sleep.sh
 
@@ -28,6 +45,39 @@ This orchestration command:
 | Both symptoms occur | Both fixes (via `fix-sleep.sh` option 3) |
 | System wakes fine, no freezes | **Do nothing** - defaults work |
 | Fix causes thermal issues or instability | **Rollback** to defaults |
+
+---
+
+## GSP Firmware & VRAM Corruption After Sleep
+
+**Date:** 2026-06-14  
+**Status:** SOLVED
+
+### Symptom
+After each sleep/wake cycle, visual artifacts appear on ALL monitors: "colorized pixels" and corrupted UI. Gets worse with each consecutive cycle. KWin restart/reconfigure does NOT fix it.
+
+### Root Cause
+`NVreg_EnableGpuFirmware=0` (disabling NVIDIA GSP firmware) on driver 610.43.02.
+
+### Why
+On driver ≥610, GSP firmware handles video memory preservation during suspend/resume. Without GSP:
+- VRAM contents are not properly saved/restored across suspend
+- GPU memory corruption accumulates with each wake cycle
+- KWin/compositor restarts can't fix it because corruption is at GPU memory level
+
+### Fix
+```bash
+# Remove any NVreg_EnableGpuFirmware=0 modprobe config
+sudo rm /etc/modprobe.d/nvidia-gsp-fix.conf
+sudo reboot
+```
+
+### Never
+- **DO NOT set `NVreg_EnableGpuFirmware=0` on driver ≥610** — causes irreversible VRAM corruption on sleep/wake
+- ArchWiki GSP warning is for older drivers (≤525), not applicable to 610+
+
+### How This Was Discovered
+During system optimization session (2026-06-13/14), GSP was disabled as preventive measure based on outdated ArchWiki guidance. Artifacts appeared immediately after next sleep/wake and worsened. Re-enabling GSP resolved immediately.
 
 ---
 
@@ -418,3 +468,35 @@ logrotate -d /etc/logrotate.d/kwin-sleep 2>&1 | head -20
 ```
 
 See also: [`docs/QUICK-REFERENCE.md`](QUICK-REFERENCE.md) for daily operational commands.
+
+---
+
+## Is It Bad to Never Sleep the PC?
+
+**Short answer: No. It is not harmful to hardware.**
+
+### What Actually Happens When the PC Never Sleeps
+
+| Concern | Reality |
+|---------|---------|
+| **CPU/GPU wear** | None. CPUs and GPUs are designed for continuous 24/7 operation. Datacenter GPUs run for years without powering off. Idle components run at minimal voltage/temperature. |
+| **SSD wear** | None. SSDs wear from writes, not from being powered on. An idle SSD performs zero writes. |
+| **Fan wear** | Minimal. Fans are rated for 50,000-100,000 hours (5-11 years continuous). Running 24/7 may shorten fan life from 11 years to 8 years — negligible. |
+| **Thermal stress** | Actually REDUCED. Constant temperature is better than repeated cooldown/heatup cycles which stress solder joints through thermal expansion. |
+| **Dust accumulation** | Slightly higher. Running fans 24/7 pulls more dust. Clean vents every 6-12 months (compressed air). |
+| **Electricity cost** | Manageable. Idle draw ~15-25W for typical gaming laptop. At 25W continuous: ~220 kWh/year ≈ ~$30-50/year (at $0.15-0.23/kWh). Sleep would be ~1-2W ≈ ~$2/year. |
+
+### What to Do Instead
+
+1. **Turn off display** after inactivity (Settings → Power Management → Screen Energy Saving). This saves ~50-70% of idle power (display backlight is the main idle draw).
+2. **Lock screen** instead of sleeping — security without hardware risk.
+3. **Reboot occasionally** (once a week) — clears memory leaks, refreshes kernel state.
+4. **For overnight shutdown**: Use `systemctl poweroff` if you want zero power draw. The boot time on modern NVMe SSDs is ~10-15 seconds — negligible.
+
+### Why Servers Never Sleep
+
+Enterprise servers, cloud datacenters, and workstation farms run 24/7/365. They never suspend. The hardware is identical to consumer hardware — same CPUs, same SSDs, same GPU architectures. If 24/7 operation damaged hardware, AWS and Google would replace millions of drives daily. They don't.
+
+### Bottom Line
+
+The only real cost of never sleeping is ~$30/year in electricity and occasional dust cleaning. The risk of filesystem corruption, data loss, and forced reboots from broken sleep is far worse.
