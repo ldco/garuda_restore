@@ -24,7 +24,17 @@ DAEMON_MODE=false
 
 # Use readable date format
 READABLE_DATE=$(date +%Y-%m-%d_%H-%M)
-BACKUP_DIR="$HOME/garuda-backup-$READABLE_DATE"
+BACKUP_DIR="$BACKUP_DEST/.tmp-garuda-backup-$READABLE_DATE"
+mkdir -p "$BACKUP_DEST" "$(dirname "$LOG_FILE")"
+
+# Cleanup handler — removes temp backup directory on any exit
+cleanup() { rm -rf "$BACKUP_DIR"; }
+trap cleanup EXIT
+
+# Remove any stale .tmp- dirs from previous crashed runs (safety net)
+for d in "$BACKUP_DEST"/.tmp-garuda-backup-*; do
+    [ -d "$d" ] && rm -rf "$d"
+done
 
 # ============================================================================
 # DAEMON MODE FUNCTIONS (notifications, logging, GUI sudo)
@@ -32,14 +42,12 @@ BACKUP_DIR="$HOME/garuda-backup-$READABLE_DATE"
 if [ "$DAEMON_MODE" = true ]; then
     export DISPLAY="${DISPLAY:-:0}"
     export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
-    mkdir -p "$(dirname "$LOG_FILE")"
-    mkdir -p "$BACKUP_DEST"
 
     log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 
     notify() {
         local title="$1" message="$2" icon="$3" urgency="${4:-normal}"
-        command -v notify-send &>/dev/null && notify-send -u "$urgency" -i "$icon" -a "Garuda Backup" "$title" "$message" 2>/dev/null
+        command -v notify-send &>/dev/null && notify-send -u "$urgency" -i "$icon" -a "Garuda Backup" "$title" "$message" 2>/dev/null || true
     }
 
     log "=========================================="
@@ -61,18 +69,20 @@ ASKPASS_EOF
     chmod +x "$ASKPASS_SCRIPT"
     export SUDO_ASKPASS="$ASKPASS_SCRIPT"
 
-    # Check if sudo cache is still valid (non-interactive, NEVER causes PAM failure)
-    if sudo -n true 2>/dev/null && sudo -A -v 2>/dev/null; then
+    # Show GUI sudo prompt — waits indefinitely for password, never checks cache first
+    if sudo -A -v 2>/dev/null; then
         log "Sudo authenticated via GUI — privileged operations enabled"
+        notify "🔑 Sudo Authenticated" "Privileged operations enabled. Proceeding with backup..." "dialog-password" "normal"
         SUDO_AVAILABLE=true
         rm -f "$ASKPASS_SCRIPT"
         (while true; do sleep 60; sudo -n true 2>/dev/null || break; done) &
         SUDO_PID=$!
-        trap "kill $SUDO_PID 2>/dev/null" EXIT
+        trap "kill $SUDO_PID 2>/dev/null || true; cleanup" EXIT
     else
-        log "No sudo (GUI prompt failed or timed out) — privileged operations skipped"
-        SUDO_AVAILABLE=false
+        log "ERROR: Sudo prompt dismissed — aborting backup"
         rm -f "$ASKPASS_SCRIPT"
+        notify "Garuda Backup Aborted" "Sudo authentication was cancelled." "dialog-error" "critical"
+        exit 1
     fi
 else
     log() { echo "$1"; }
@@ -140,9 +150,14 @@ mkdir -p "$BACKUP_DIR/systemd/user-units"
 [ -f "$HOME/.config/systemd/user/garuda-backup.service" ] && cp "$HOME/.config/systemd/user/garuda-backup.service" "$BACKUP_DIR/systemd/user-units/"
 [ -f "$HOME/.config/systemd/user/garuda-backup.timer" ] && cp "$HOME/.config/systemd/user/garuda-backup.timer" "$BACKUP_DIR/systemd/user-units/"
 
-# Copy the backup scripts themselves
+# Copy the backup scripts themselves (including tools/)
 mkdir -p "$BACKUP_DIR/backup-scripts"
 cp "$SCRIPT_DIR"/*.sh "$BACKUP_DIR/backup-scripts/" 2>/dev/null || true
+# Copy tools/ subdirectory (detect-hardware.sh, apply-optimizations.sh, etc.)
+if [ -d "$SCRIPT_DIR/tools" ]; then
+    mkdir -p "$BACKUP_DIR/tools"
+    cp -r "$SCRIPT_DIR/tools/"* "$BACKUP_DIR/tools/" 2>/dev/null || true
+fi
 
 echo "   ✓ Systemd services + backup scripts saved"
 
@@ -760,17 +775,17 @@ cp "$(dirname "$0")/restore.sh" "$BACKUP_DIR/" 2>/dev/null || true
 BACKUP_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
 
 # Create compressed archive with readable date
-cd "$HOME"
+cd "$BACKUP_DEST"
 ARCHIVE_NAME="garuda-backup-${READABLE_DATE}.tar.gz"
 tar -I pigz -cf "$ARCHIVE_NAME" "$(basename "$BACKUP_DIR")"
 
-echo "   ✓ Archive created: $HOME/$ARCHIVE_NAME"
+echo "   ✓ Archive created: $BACKUP_DEST/$ARCHIVE_NAME"
 
 # ============================================================================
 # DAEMON MODE: Move archive to backup destination, cleanup old backups
 # ============================================================================
 if [ "$DAEMON_MODE" = true ]; then
-    ARCHIVE="$HOME/$ARCHIVE_NAME"
+    ARCHIVE="$BACKUP_DEST/$ARCHIVE_NAME"
 
     # Remove "last" from previous backup filename
     PREV_LAST=$(ls "$BACKUP_DEST"/garuda-backup-*-last.tar.gz 2>/dev/null | head -1)
@@ -785,8 +800,7 @@ if [ "$DAEMON_MODE" = true ]; then
     FINAL_ARCHIVE="$BACKUP_DEST/${ARCHIVE_BASENAME}-last.tar.gz"
     mv "$ARCHIVE" "$FINAL_ARCHIVE"
 
-    # Remove uncompressed backup directory
-    rm -rf "$BACKUP_DIR"
+    # (temp dir cleaned by trap on EXIT)
 
     # Get backup size
     FINAL_SIZE=$(du -h "$FINAL_ARCHIVE" | cut -f1)
@@ -805,7 +819,7 @@ if [ "$DAEMON_MODE" = true ]; then
     log "Cleanup complete. $BACKUP_COUNT backups remaining."
     log "=========================================="
 
-    notify "✅ Garuda Backup Complete" "Saved: $(basename "$FINAL_ARCHIVE")\nSize: $FINAL_SIZE\nLocation: $BACKUP_DEST" "dialog-ok" "normal"
+    notify "✅ Garuda Backup Complete" "Saved: $(basename "$FINAL_ARCHIVE")\nSize: $FINAL_SIZE\nLocation: $BACKUP_DEST" "dialog-ok" "normal" || true
 
     echo ""
     echo "✓ Backup complete: $FINAL_ARCHIVE ($FINAL_SIZE)"
@@ -815,8 +829,7 @@ else
     echo "║                    BACKUP FINISHED!                                   ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo ""
-    echo "Backup directory: $BACKUP_DIR"
-    echo "Backup archive:   $HOME/$ARCHIVE_NAME"
+    echo "Backup archive:   $BACKUP_DEST/$ARCHIVE_NAME"
     echo "Total size:       $BACKUP_SIZE"
     echo ""
     echo "NEXT STEPS:"
