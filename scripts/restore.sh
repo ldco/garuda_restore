@@ -36,6 +36,37 @@ read -p "Press Enter to continue or Ctrl+C to cancel..."
 echo ""
 
 # ============================================================================
+# 0. PRE-FLIGHT: RESOLVE KNOWN PACKAGE CONFLICTS
+# ============================================================================
+echo "[0/22] Pre-flight: resolving known package conflicts..."
+
+# Garuda preinstalls nodejs-lts-jod which conflicts with npm (required by many packages)
+if pacman -Q nodejs-lts-jod &>/dev/null; then
+    echo "   Removing nodejs-lts-jod (conflicts with npm)..."
+    sudo pacman -Rdd --noconfirm nodejs-lts-jod 2>/dev/null || true
+    echo "   ✓ nodejs-lts-jod removed"
+fi
+
+# happ from official repos conflicts with happ-desktop-bin from AUR
+# Only remove if backup indicates happ-desktop-bin was used
+if grep -q "happ-desktop-bin" "$BACKUP_DIR/packages/aur-packages.txt" 2>/dev/null; then
+    if pacman -Q happ &>/dev/null; then
+        echo "   Removing happ (will be replaced with happ-desktop-bin)..."
+        sudo pacman -Rdd --noconfirm happ 2>/dev/null || true
+        echo "   ✓ happ removed"
+    fi
+fi
+
+# Refresh pacman keyring (prevents GPG trust DB issues)
+echo "   Refreshing pacman keyring..."
+sudo pacman-key --init 2>/dev/null || true
+sudo pacman-key --populate archlinux garuda 2>/dev/null || true
+echo "   ✓ Keyring refreshed"
+
+echo "   ✓ Pre-flight complete"
+echo ""
+
+# ============================================================================
 # 1. UPDATE SYSTEM FIRST
 # ============================================================================
 echo "[1/22] Updating system..."
@@ -978,6 +1009,22 @@ update-desktop-database ~/.local/share/applications 2>/dev/null || true
 echo "   Updating icon cache..."
 gtk-update-icon-cache -f -t ~/.icons 2>/dev/null || true
 gtk-update-icon-cache -f -t ~/.local/share/icons 2>/dev/null || true
+
+# Remove stale browser profile locks (common issue after restore)
+echo "   Cleaning stale browser locks..."
+for lock in ~/.config/BraveSoftware/Brave-Browser/Singleton* \
+            ~/.config/google-chrome/Singleton* \
+            ~/.config/chromium/Singleton*; do
+    [ -f "$lock" ] && rm -f "$lock" && echo "     Removed: $lock"
+done 2>/dev/null || true
+
+# Verify GPG trust database
+echo "   Verifying pacman keyring..."
+if ! sudo pacman-key --list-keys archlinux@archlinux.org &>/dev/null; then
+    echo "     Keyring needs repair — running pacman-key --populate..."
+    sudo pacman-key --init 2>/dev/null || true
+    sudo pacman-key --populate archlinux garuda 2>/dev/null || true
+fi
 
 echo "   ✓ System fully updated"
 
