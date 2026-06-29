@@ -254,22 +254,22 @@ mkdir -p "$BACKUP_DIR/security"
 
 # SSH keys and config
 if [ -d "$HOME/.ssh" ]; then
-    cp -r "$HOME/.ssh" "$BACKUP_DIR/security/"
+    cp -r "$HOME/.ssh" "$BACKUP_DIR/security/" 2>/dev/null || true
     echo "   ✓ SSH keys backed up"
 fi
 
 # GPG keys
 if [ -d "$HOME/.gnupg" ]; then
-    cp -r "$HOME/.gnupg" "$BACKUP_DIR/security/"
+    cp -r "$HOME/.gnupg" "$BACKUP_DIR/security/" 2>/dev/null || true
     echo "   ✓ GPG keys backed up"
 fi
 
 # Password store (pass)
-[ -d "$HOME/.password-store" ] && cp -r "$HOME/.password-store" "$BACKUP_DIR/security/"
+[ -d "$HOME/.password-store" ] && cp -r "$HOME/.password-store" "$BACKUP_DIR/security/" 2>/dev/null || true
 
 # User avatar (KDE/SDDM face icon)
-[ -f "$HOME/.face.icon" ] && cp "$HOME/.face.icon" "$BACKUP_DIR/security/"
-[ -f "$HOME/.face" ] && cp "$HOME/.face" "$BACKUP_DIR/security/"
+[ -f "$HOME/.face.icon" ] && cp "$HOME/.face.icon" "$BACKUP_DIR/security/" 2>/dev/null || true
+[ -f "$HOME/.face" ] && cp "$HOME/.face" "$BACKUP_DIR/security/" 2>/dev/null || true
 
 echo "   ✓ Security credentials backed up"
 
@@ -288,8 +288,22 @@ for wp in $WALLPAPER_FILES; do
     fi
 done
 
-# Also backup entire Pictures/Wallpapers folder if it exists
-[ -d "$HOME/Pictures/Wallpapers" ] && cp -r "$HOME/Pictures/Wallpapers" "$BACKUP_DIR/wallpapers/"
+# Also backup wallpaper from restore cache (set by restore script's auto-apply)
+RESTORE_WP="$HOME/.cache/restore-wallpaper-path"
+if [ -f "$RESTORE_WP" ]; then
+    WP_FILE=$(cat "$RESTORE_WP")
+    if [ -f "$WP_FILE" ]; then
+        cp "$WP_FILE" "$BACKUP_DIR/wallpapers/" 2>/dev/null || true
+        echo "   Found (restore cache): $(basename "$WP_FILE")"
+    fi
+fi
+
+# Backup Pictures/Wallpapers folder and any images directly in Pictures/
+[ -d "$HOME/Pictures/Wallpapers" ] && cp -r "$HOME/Pictures/Wallpapers/"* "$BACKUP_DIR/wallpapers/" 2>/dev/null || true
+# Also grab any PNG/JPG directly in ~/Pictures/ (wallpaper may live there)
+find "$HOME/Pictures" -maxdepth 1 -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" 2>/dev/null | while read -r f; do
+    cp "$f" "$BACKUP_DIR/wallpapers/" 2>/dev/null || true
+done
 
 echo "   ✓ Wallpapers backed up"
 
