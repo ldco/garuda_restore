@@ -1108,13 +1108,45 @@ echo "  Fooocus:  cd ~/Fooocus && source venv/bin/activate && python entry_with_
 echo "            Open: http://127.0.0.1:7865"
 echo ""
 
-# Auto-apply wallpaper if plasma-apply-wallpaperimage is available
+# === WALLPAPER: Set desktop + lock screen + SDDM login ===
 WALLPAPER_CACHE="$HOME/.cache/restore-wallpaper-path"
-if [ -f "$WALLPAPER_CACHE" ] && command -v plasma-apply-wallpaperimage &>/dev/null; then
+if [ -f "$WALLPAPER_CACHE" ]; then
     WALLPAPER=$(cat "$WALLPAPER_CACHE")
     if [ -f "$WALLPAPER" ]; then
-        echo "Applying wallpaper: $WALLPAPER"
-        plasma-apply-wallpaperimage "$WALLPAPER" 2>/dev/null && echo "   ✓ Wallpaper applied" || true
+        
+        # 1. Lock screen wallpaper (kscreenlockerrc — works without plasma running)
+        echo "   Setting lock screen wallpaper..."
+        kwriteconfig6 --file kscreenlockerrc \
+            --group "Greeter" --group "Wallpaper" --group "org.kde.image" --group "General" \
+            --key "Image" --type string "$WALLPAPER" 2>/dev/null || true
+        
+        # 2. SDDM login screen wallpaper
+        echo "   Setting SDDM login screen wallpaper..."
+        for theme_dir in /usr/share/sddm/themes/Dr460nized /usr/share/sddm/themes/Sweet; do
+            if [ -d "$theme_dir" ]; then
+                sudo cp "$WALLPAPER" "$theme_dir/background.png" 2>/dev/null || true
+                # Update theme.conf if it references background
+                sudo sed -i "s|^background=.*|background=background.png|" "$theme_dir/theme.conf" 2>/dev/null || true
+            fi
+        done
+        
+        # 3. Desktop wallpaper — create autostart script (plasma isn't running yet during restore)
+        echo "   Creating first-login wallpaper autostart..."
+        mkdir -p "$HOME/.config/autostart"
+        cat > "$HOME/.config/autostart/restore-wallpaper.desktop" << AUTOSTART
+[Desktop Entry]
+Type=Application
+Name=Restore Wallpaper
+Exec=sh -c 'plasma-apply-wallpaperimage $WALLPAPER && sleep 2 && rm -f \$HOME/.config/autostart/restore-wallpaper.desktop'
+X-KDE-autostart-phase=2
+AUTOSTART
+        
+        # 4. Also apply now if plasma is already running
+        if command -v plasma-apply-wallpaperimage &>/dev/null && qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.wallpaper 0 &>/dev/null; then
+            plasma-apply-wallpaperimage "$WALLPAPER" 2>/dev/null
+        fi
+        
+        echo "   ✓ Wallpaper configured (desktop + lock + login)"
     fi
     rm -f "$WALLPAPER_CACHE"
 fi
