@@ -237,11 +237,27 @@ else
     echo "   ⚠ No npm packages to restore or npm not installed"
 fi
 
-# --- PIP USER PACKAGES ---
-echo "   [4/6] Installing pip user packages..."
-if [ -f "$TRACKER_DATA/pip-user.txt" ] && command -v pip &>/dev/null; then
-    pip install --user --break-system-packages -r "$TRACKER_DATA/pip-user.txt" 2>&1 || echo "   ⚠ Some pip packages may have failed (PEP 668)"
-    echo "   ✓ PIP packages done"
+# --- PIP USER PACKAGES (install via pacman when available) ---
+echo "   [4/6] Installing pip packages (via pacman when available)..."
+if [ -f "$TRACKER_DATA/pip-user.txt" ]; then
+    PIP_OK=0
+    PIP_FAIL=0
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        # Extract package name from pip freeze format: name==version
+        pypkg=$(echo "$line" | cut -d'=' -f1)
+        # Try pacman first (python-<name>)
+        if sudo pacman -S --needed --noconfirm "python-$pypkg" &>/dev/null; then
+            ((PIP_OK++))
+        # Try pipx for CLI tools
+        elif command -v pipx &>/dev/null && pipx install "$pypkg" &>/dev/null; then
+            ((PIP_OK++))
+        else
+            ((PIP_FAIL++))
+            echo "     ⚠ $pypkg — install manually via 'pacman -S python-$pypkg' or 'pipx install $pypkg'"
+        fi
+    done < "$TRACKER_DATA/pip-user.txt"
+    echo "   ✓ PIP: $PIP_OK installed, $PIP_FAIL failed (use pipx or project venv)"
 else
     echo "   ⚠ No pip packages to restore"
 fi
