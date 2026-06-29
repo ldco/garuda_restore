@@ -67,16 +67,84 @@ echo "   ✓ Pre-flight complete"
 echo ""
 
 # ============================================================================
-# 1. UPDATE SYSTEM FIRST
+# 1. VPN FIRST — Install Happ + restore keys + start VPN BEFORE system update
 # ============================================================================
-echo "[1/22] Updating system..."
+echo "╔══════════════════════════════════════════════════════════════════════╗"
+echo "║  [1/23] VPN FIRST — Happ + subscription keys + VPN tunnel          ║"
+echo "╚══════════════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Install paru (needed for happ-desktop-bin from AUR)
+echo "   [1a] Installing paru..."
+if ! command -v paru &>/dev/null; then
+    # Chaotic-AUR setup first (provides paru)
+    if ! grep -q "chaotic-aur" /etc/pacman.conf 2>/dev/null; then
+        sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com 2>/dev/null || true
+        sudo pacman-key --lsign-key 3056513887B78AEB 2>/dev/null || true
+        sudo pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' --noconfirm 2>/dev/null
+        sudo pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' --noconfirm 2>/dev/null
+        echo -e '\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist' | sudo tee -a /etc/pacman.conf > /dev/null
+        sudo pacman -Sy 2>/dev/null
+    fi
+    sudo pacman -S --needed --noconfirm paru 2>/dev/null
+fi
+echo "   ✓ paru ready"
+
+# Install Happ (VPN client with GUI)
+echo ""
+echo "   [1b] Installing Happ VPN client..."
+HAPP_PKG="happ"
+grep -q "happ-desktop-bin" "$BACKUP_DIR/packages/aur-packages.txt" 2>/dev/null && HAPP_PKG="happ-desktop-bin"
+
+if [ "$HAPP_PKG" = "happ-desktop-bin" ]; then
+    sudo pacman -Rdd --noconfirm happ 2>/dev/null || true  # remove repo version if present
+    paru -S --needed --noconfirm happ-desktop-bin 2>/dev/null || echo "     ⚠ happ-desktop-bin from AUR failed, trying repo version..."
+fi
+
+# Fall back to repo version if AUR failed or not desired
+if ! pacman -Q happ &>/dev/null && ! pacman -Q happ-desktop-bin &>/dev/null; then
+    sudo pacman -S --needed --noconfirm happ 2>/dev/null
+fi
+echo "   ✓ Happ installed"
+
+# Restore Happ VPN subscription keys (from backup's ~/.config)
+echo ""
+echo "   [1c] Restoring VPN subscription keys..."
+if [ -f "$BACKUP_DIR/config/Happ.conf" ]; then
+    mkdir -p "$HOME/.config"
+    cp "$BACKUP_DIR/config/Happ.conf" "$HOME/.config/" 2>/dev/null
+    echo "   ✓ Happ.conf restored (encrypted subscription keys)"
+fi
+if [ -d "$BACKUP_DIR/config/Happ" ]; then
+    mkdir -p "$HOME/.config/Happ"
+    cp -r "$BACKUP_DIR/config/Happ/"* "$HOME/.config/Happ/" 2>/dev/null
+    echo "   ✓ Happ/ directory restored (subscription database: subs.db)"
+fi
+
+# Enable and start Happ daemon
+echo ""
+echo "   [1d] Starting VPN tunnel..."
+sudo systemctl enable happd 2>/dev/null || true
+sudo systemctl start happd 2>/dev/null || true
+echo "   ✓ Happ daemon started — VPN tunnel active"
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════════════╗"
+echo "║  VPN is ACTIVE — all remaining downloads go through secure tunnel   ║"
+echo "╚══════════════════════════════════════════════════════════════════════╝"
+echo ""
+
+# ============================================================================
+# 2. UPDATE SYSTEM (through VPN)
+# ============================================================================
+echo "[2/23] Updating system (via VPN)..."
 sudo pacman -Syu --noconfirm
 echo "   ✓ System updated"
 
 # ============================================================================
-# 2. DETECT HARDWARE
+# 3. DETECT HARDWARE
 # ============================================================================
-echo "[2/22] Detecting hardware..."
+echo "[3/23] Detecting hardware..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DETECT_SCRIPT="$SCRIPT_DIR/tools/detect-hardware.sh"
@@ -92,9 +160,9 @@ else
 fi
 
 # ============================================================================
-# 3. INSTALL CHAOTIC-AUR (if not present)
+# 4. ENSURE CHAOTIC-AUR (may already be set up from step 1)
 # ============================================================================
-echo "[3/22] Ensuring Chaotic-AUR is configured..."
+echo "[4/23] Ensuring Chaotic-AUR is configured..."
 
 if ! grep -q "chaotic-aur" /etc/pacman.conf 2>/dev/null; then
     echo "   Installing Chaotic-AUR..."
@@ -108,11 +176,10 @@ fi
 echo "   ✓ Chaotic-AUR configured"
 
 # ============================================================================
-# 4. INSTALL PARU (AUR helper)
+# 5. INSTALL PARU (already done in step 1, but verify)
 # ============================================================================
-echo "[4/22] Ensuring paru is installed..."
-
-if ! command -v paru &> /dev/null; then
+echo "[5/23] paru already installed (step 1), verifying..."
+if ! command -v paru &>/dev/null; then
     echo "   Installing paru..."
     sudo pacman -S --needed base-devel git --noconfirm
     git clone https://aur.archlinux.org/paru.git /tmp/paru
