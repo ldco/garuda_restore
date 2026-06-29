@@ -224,12 +224,13 @@ echo "   [3/6] Installing global npm packages..."
 if [ -f "$TRACKER_DATA/npm-global.txt" ] && command -v npm &>/dev/null; then
     while IFS= read -r line; do
         [ -z "$line" ] && continue
-        # Extract package name (format: package@version)
-        pkg=$(echo "$line" | cut -d'@' -f1)
+        # Extract package name from: @scope/name@version or name@version
+        # Cut off last @version segment only
+        pkg=$(echo "$line" | sed 's/@[^@]*$//')
         # Skip npm itself and built-in packages
-        [[ "$pkg" == "npm" || "$pkg" == "corepack" ]] && continue
+        [[ "$pkg" == "npm" || "$pkg" == "corepack" || -z "$pkg" ]] && continue
         echo "     Installing: $pkg"
-        sudo npm install -g "$pkg" 2>/dev/null || true
+        sudo npm install -g "$pkg" 2>&1 || echo "     ⚠ Failed: $pkg"
     done < "$TRACKER_DATA/npm-global.txt"
     echo "   ✓ NPM packages done"
 else
@@ -239,7 +240,7 @@ fi
 # --- PIP USER PACKAGES ---
 echo "   [4/6] Installing pip user packages..."
 if [ -f "$TRACKER_DATA/pip-user.txt" ] && command -v pip &>/dev/null; then
-    pip install --user -r "$TRACKER_DATA/pip-user.txt" 2>/dev/null || true
+    pip install --user --break-system-packages -r "$TRACKER_DATA/pip-user.txt" 2>&1 || echo "   ⚠ Some pip packages may have failed (PEP 668)"
     echo "   ✓ PIP packages done"
 else
     echo "   ⚠ No pip packages to restore"
