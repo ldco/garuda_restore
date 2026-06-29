@@ -98,30 +98,95 @@ echo "[4/22] Installing all software (this may take a while)..."
 # Use tracker data if available, otherwise fall back to legacy
 TRACKER_DATA="$BACKUP_DIR/installed-software"
 
-# --- PACMAN NATIVE PACKAGES ---
-echo "   [1/6] Installing native packages (pacman)..."
-if [ -f "$TRACKER_DATA/pacman-explicit.txt" ]; then
-    NATIVE_PKGS=$(cat "$TRACKER_DATA/pacman-explicit.txt" | tr '\n' ' ')
-    sudo pacman -S --needed --noconfirm $NATIVE_PKGS 2>&1 | grep -v "warning:" || true
-elif [ -f "$BACKUP_DIR/packages/native-packages.txt" ]; then
-    NATIVE_PKGS=$(cat "$BACKUP_DIR/packages/native-packages.txt" | awk '{print $1}' | tr '\n' ' ')
-    sudo pacman -S --needed --noconfirm $NATIVE_PKGS 2>&1 | grep -v "warning:" || true
-fi
-echo "   ✓ Native packages done"
+# Load explicit package list (may contain both native and AUR packages)
+PKG_FILE="$TRACKER_DATA/pacman-explicit.txt"
+[ ! -f "$PKG_FILE" ] && PKG_FILE="$BACKUP_DIR/packages/explicitly-installed.txt"
 
-# --- AUR PACKAGES ---
-echo "   [2/6] Installing AUR packages (paru)..."
-AUR_FILE="$TRACKER_DATA/aur-packages.txt"
-[ ! -f "$AUR_FILE" ] && AUR_FILE="$BACKUP_DIR/packages/aur-packages.txt"
-if [ -f "$AUR_FILE" ]; then
+# --- SEPARATE NATIVE vs AUR from explicit list ---
+echo "   [0/6] Analyzing package list (separating native vs AUR)..."
+NATIVE_TMP=$(mktemp)
+AUR_TMP=$(mktemp)
+NATIVE_COUNT=0
+AUR_COUNT=0
+
+if [ -f "$PKG_FILE" ]; then
     while IFS= read -r pkg; do
         [ -z "$pkg" ] && continue
         pkg=$(echo "$pkg" | awk '{print $1}')
-        echo "     Installing: $pkg"
-        paru -S --needed --noconfirm "$pkg" 2>/dev/null || echo "     ⚠ Could not install $pkg"
-    done < "$AUR_FILE"
+        # Check if package is in pacman repos (native) or AUR-only
+        if pacman -Si "$pkg" 2>/dev/null | grep -q "^Repository "; then
+            echo "$pkg" >> "$NATIVE_TMP"
+            ((NATIVE_COUNT++))
+        else
+            echo "$pkg" >> "$AUR_TMP"
+            ((AUR_COUNT++))
+        fi
+    done < "$PKG_FILE"
 fi
-echo "   ✓ AUR packages done"
+echo "   → Native (pacman): $NATIVE_COUNT packages"
+echo "   → AUR (paru):      $AUR_COUNT packages"
+echo ""
+
+# --- PACMAN NATIVE PACKAGES (one-at-a-time, no error swallowing) ---
+echo "   [1/6] Installing native packages (pacman, one-at-a-time)..."
+NATIVE_OK=0
+NATIVE_FAIL=0
+NATIVE_SKIP=0
+if [ -f "$NATIVE_TMP" ] && [ -s "$NATIVE_TMP" ]; then
+    while IFS= read -r pkg; do
+        [ -z "$pkg" ] && continue
+        if pacman -Q "$pkg" &>/dev/null; then
+            ((NATIVE_SKIP++))
+            continue
+        fi
+        if sudo pacman -S --needed --noconfirm "$pkg" &>/dev/null; then
+            ((NATIVE_OK++))
+        else
+            ((NATIVE_FAIL++))
+            echo "     ⚠ Failed: $pkg"
+        fi
+    done < "$NATIVE_TMP"
+    echo "   ✓ Native: $NATIVE_OK installed, $NATIVE_SKIP skipped, $NATIVE_FAIL failed"
+else
+    echo "   ⚠ No native packages to install"
+fi
+
+# --- AUR PACKAGES (one-at-a-time) ---
+echo "   [2/6] Installing AUR packages (paru, one-at-a-time)..."
+AUR_OK=0
+AUR_FAIL=0
+AUR_SKIP=0
+
+# Also load the dedicated AUR list (pacman -Qm captures foreign packages)
+AUR_DEDICATED_FILE="$TRACKER_DATA/aur-packages.txt"
+[ ! -f "$AUR_DEDICATED_FILE" ] && AUR_DEDICATED_FILE="$BACKUP_DIR/packages/aur-packages.txt"
+
+# Merge AUR packages from both sources (explicit list + dedicated aur list)
+AUR_MERGED=$(mktemp)
+if [ -f "$AUR_TMP" ]; then cat "$AUR_TMP" >> "$AUR_MERGED"; fi
+if [ -f "$AUR_DEDICATED_FILE" ]; then cat "$AUR_DEDICATED_FILE" | awk '{print $1}' >> "$AUR_MERGED"; fi
+sort -u "$AUR_MERGED" -o "$AUR_MERGED"
+
+if [ -s "$AUR_MERGED" ]; then
+    while IFS= read -r pkg; do
+        [ -z "$pkg" ] && continue
+        if pacman -Q "$pkg" &>/dev/null; then
+            ((AUR_SKIP++))
+            continue
+        fi
+        if paru -S --needed --noconfirm "$pkg" &>/dev/null; then
+            ((AUR_OK++))
+        else
+            ((AUR_FAIL++))
+            echo "     ⚠ Failed: $pkg"
+        fi
+    done < "$AUR_MERGED"
+    echo "   ✓ AUR: $AUR_OK installed, $AUR_SKIP skipped, $AUR_FAIL failed"
+else
+    echo "   ⚠ No AUR packages to install"
+fi
+
+rm -f "$NATIVE_TMP" "$AUR_TMP" "$AUR_MERGED"
 
 # --- NPM GLOBAL PACKAGES ---
 echo "   [3/6] Installing global npm packages..."
