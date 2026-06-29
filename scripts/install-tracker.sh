@@ -13,11 +13,21 @@ mkdir -p "$TRACKER_DIR"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Scanning installed software..."
 
+# Known-unavailable packages (removed from AUR, no longer installable)
+AUR_EXCLUDE="nocowboy ypn-client"
+
 # ============================================================================
 # 1. PACMAN - Official packages (explicitly installed)
 # ============================================================================
 pacman -Qe --quiet > "$TRACKER_DIR/pacman-explicit.txt" 2>/dev/null || true
 pacman -Qe > "$TRACKER_DIR/pacman-explicit-versions.txt" 2>/dev/null || true
+
+# Filter out known-unavailable packages from pacman lists
+for pkg in $AUR_EXCLUDE; do
+    sed -i "/^${pkg}\b/d" "$TRACKER_DIR/pacman-explicit.txt" 2>/dev/null || true
+    sed -i "/^${pkg}\b/d" "$TRACKER_DIR/pacman-explicit-versions.txt" 2>/dev/null || true
+done
+
 echo "✓ Pacman: $(wc -l < "$TRACKER_DIR/pacman-explicit.txt") packages"
 
 # ============================================================================
@@ -25,6 +35,13 @@ echo "✓ Pacman: $(wc -l < "$TRACKER_DIR/pacman-explicit.txt") packages"
 # ============================================================================
 pacman -Qm --quiet > "$TRACKER_DIR/aur-packages.txt" 2>/dev/null || true
 pacman -Qm > "$TRACKER_DIR/aur-packages-versions.txt" 2>/dev/null || true
+
+# Filter out known-unavailable AUR packages
+for pkg in $AUR_EXCLUDE; do
+    sed -i "/^${pkg}\b/d" "$TRACKER_DIR/aur-packages.txt" 2>/dev/null || true
+    sed -i "/^${pkg}\b/d" "$TRACKER_DIR/aur-packages-versions.txt" 2>/dev/null || true
+done
+
 echo "✓ AUR: $(wc -l < "$TRACKER_DIR/aur-packages.txt") packages"
 
 # ============================================================================

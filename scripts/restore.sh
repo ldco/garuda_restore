@@ -381,6 +381,12 @@ fi
 
 [ -d "$BACKUP_DIR/security/.password-store" ] && cp -r "$BACKUP_DIR/security/.password-store" "$HOME/"
 
+# Restore user avatar / face icon
+if [ -f "$BACKUP_DIR/security/.face.icon" ]; then
+    cp "$BACKUP_DIR/security/.face.icon" "$HOME/.face.icon"
+    echo "   ✓ User avatar restored"
+fi
+
 echo "   ✓ Security credentials restored"
 
 # ============================================================================
@@ -392,6 +398,9 @@ if [ -d "$BACKUP_DIR/wallpapers" ]; then
     mkdir -p "$HOME/Pictures"
     cp -r "$BACKUP_DIR/wallpapers/"* "$HOME/Pictures/" 2>/dev/null || true
     echo "   ✓ Wallpapers restored to ~/Pictures/"
+    # Record first wallpaper for auto-apply after plasma starts
+    FIRST_WALLPAPER=$(ls "$HOME/Pictures/"*.png "$HOME/Pictures/"*.jpg 2>/dev/null | head -1)
+    [ -n "$FIRST_WALLPAPER" ] && echo "$FIRST_WALLPAPER" > "$HOME/.cache/restore-wallpaper-path"
 else
     echo "   No wallpapers to restore"
 fi
@@ -1081,3 +1090,14 @@ echo ""
 echo "  Fooocus:  cd ~/Fooocus && source venv/bin/activate && python entry_with_update.py"
 echo "            Open: http://127.0.0.1:7865"
 echo ""
+
+# Auto-apply wallpaper if plasma-apply-wallpaperimage is available
+WALLPAPER_CACHE="$HOME/.cache/restore-wallpaper-path"
+if [ -f "$WALLPAPER_CACHE" ] && command -v plasma-apply-wallpaperimage &>/dev/null; then
+    WALLPAPER=$(cat "$WALLPAPER_CACHE")
+    if [ -f "$WALLPAPER" ]; then
+        echo "Applying wallpaper: $WALLPAPER"
+        plasma-apply-wallpaperimage "$WALLPAPER" 2>/dev/null && echo "   ✓ Wallpaper applied" || true
+    fi
+    rm -f "$WALLPAPER_CACHE"
+fi

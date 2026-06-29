@@ -267,6 +267,10 @@ fi
 # Password store (pass)
 [ -d "$HOME/.password-store" ] && cp -r "$HOME/.password-store" "$BACKUP_DIR/security/"
 
+# User avatar (KDE/SDDM face icon)
+[ -f "$HOME/.face.icon" ] && cp "$HOME/.face.icon" "$BACKUP_DIR/security/"
+[ -f "$HOME/.face" ] && cp "$HOME/.face" "$BACKUP_DIR/security/"
+
 echo "   ✓ Security credentials backed up"
 
 # ============================================================================
