@@ -245,6 +245,14 @@ done
 
 echo "   ✓ ~/.local/share backed up (with clipboard history!)"
 
+# Backup ~/.local/bin (user scripts: autostart launchers, custom binaries)
+if [ -d "$HOME/.local/bin" ]; then
+    mkdir -p "$BACKUP_DIR/.local-bin"
+    cp -r "$HOME/.local/bin/"* "$BACKUP_DIR/.local-bin/" 2>/dev/null || true
+    BIN_COUNT=$(find "$HOME/.local/bin" -maxdepth 1 -type f | wc -l)
+    [ "$BIN_COUNT" -gt 0 ] && echo "   ✓ ~/.local/bin backed up ($BIN_COUNT scripts)"
+fi
+
 # ============================================================================
 # 5. SSH KEYS, GPG KEYS, SECURITY
 # ============================================================================

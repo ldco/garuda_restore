@@ -444,6 +444,15 @@ else
     echo "   ⚠ No local-share backup found"
 fi
 
+# Restore ~/.local/bin (user scripts)
+if [ -d "$BACKUP_DIR/.local-bin" ]; then
+    mkdir -p "$HOME/.local/bin"
+    cp -r "$BACKUP_DIR/.local-bin/"* "$HOME/.local/bin/" 2>/dev/null || true
+    chmod +x "$HOME/.local/bin/"* 2>/dev/null || true
+    BIN_COUNT=$(find "$HOME/.local/bin" -maxdepth 1 -type f | wc -l)
+    echo "   ✓ ~/.local/bin restored ($BIN_COUNT scripts)"
+fi
+
 # ============================================================================
 # 9. RESTORE SSH KEYS AND SECURITY
 # ============================================================================
