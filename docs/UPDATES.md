@@ -98,7 +98,7 @@ sudo ./scripts/tools/update-now.sh
 
 1. copies the engine and the runner to `/usr/local/lib/garuda-restore/`
    (independent of this repo and the external drive);
-2. prints a countdown (Ctrl+C cancels) while you save your work;
+2. warns and stops the graphical session immediately — save your work first;
 3. switches to tty1, so the install output is visible;
 4. starts `garuda-update-now.service` with **`IgnoreOnIsolate=yes`** — a
    transient unit is *not* part of `multi-user.target`, and without that flag
