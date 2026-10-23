@@ -198,3 +198,33 @@ pacman -Qu | wc -l                                           # repo updates: 0
 
 If it fails again, do **not** reboot blindly: boot snapshot 290 from the
 grub-btrfs menu and read `/var/log/garuda/system-update-*.log`.
+
+---
+
+## 2026-10-23 17:50 — why `update-now.sh` showed a black screen
+
+The first `update-now.sh` run (17:37) did not install anything. Journal:
+
+```
+17:37:05 Started [systemd-run] .../update-engine.sh install --force --offline
+17:38:05 garuda-update-now.timer: Deactivated successfully
+17:38:05 Stopped [systemd-run] .../update-engine.sh install --force --offline
+17:38:15 user session shutdown (isolate multi-user.target)
+```
+
+`systemctl isolate` stops every unit that is not part of the new target. A
+transient unit created by `systemd-run` is not in `multi-user.target`, so the
+isolate killed it in the same second the timer fired. The engine never reached
+`setup_logging` — there is no `system-update-*.log` after 17:15. The screen was
+black because the active VT was the dead Plasma tty; the console was on tty1.
+
+Fixes in `update-now.sh`:
+
+- `--property=IgnoreOnIsolate=yes` on the transient unit;
+- `chvt 1` before the isolate;
+- runner starts after the countdown, waits 10 s for the session to stop;
+- on success: automatic reboot; on failure: `systemctl start graphical.target`
+  and the error is printed to the console.
+
+Verified after the failed run: 679 packages still pending, `pacman -Dk` clean,
+no package replaced.

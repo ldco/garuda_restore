@@ -96,18 +96,24 @@ child of that session. `update-now.sh` removes the manual TTY steps:
 sudo ./scripts/tools/update-now.sh
 ```
 
-1. copies the engine to `/usr/local/lib/garuda-restore/` (independent of this
-   repo and the external drive);
-2. queues `garuda-update-now.service` as a **transient systemd unit** — a kwin
-   hang cannot kill the transaction;
-3. prints a 20-second countdown (Ctrl+C cancels) while you save your work;
-4. stops the graphical session;
-5. ten seconds later the update runs offline from `/var/cache/pacman/pkg`,
-   on a text console.
+1. copies the engine and the runner to `/usr/local/lib/garuda-restore/`
+   (independent of this repo and the external drive);
+2. prints a countdown (Ctrl+C cancels) while you save your work;
+3. switches to tty1, so the install output is visible;
+4. starts `garuda-update-now.service` with **`IgnoreOnIsolate=yes`** — a
+   transient unit is *not* part of `multi-user.target`, and without that flag
+   `systemctl isolate` kills it (this is exactly what happened on 2026-10-23
+   at 17:38: the unit was started and stopped one second later; nothing was
+   installed);
+5. stops the graphical session;
+6. the runner waits 10 s, installs offline from `/var/cache/pacman/pkg`, then
+   **reboots automatically on success**;
+7. on failure it prints the error and starts `graphical.target` again, so the
+   desktop comes back instead of leaving a black screen.
 
-Watch it from a text console with `journalctl -u garuda-update-now -f`.
-When it finishes, `sudo reboot`. AUR packages are not touched in this mode;
-run `paru -Sua` after the reboot.
+Watch it from tty1 or with `journalctl -u garuda-update-now -f`. Runner log:
+`/var/log/garuda/update-now-run.log`. AUR packages are not touched in this
+mode; run `paru -Sua` after the reboot.
 
 ## What install does
 
