@@ -68,6 +68,7 @@ garuda-restore/
 │       ├── apply-optimizations.sh         # Conditional optimizations (NEW)
 │       ├── system-health-check.sh         # check command
 │       ├── system-update.sh               # update command (safe front-end)
+│       ├── update-now.sh                  # one-command detached install
 │       └── update-engine.sh               # prepare/install/clean engine
 └── pacman-hooks/
     └── track-installs.hook                # Package tracking
@@ -150,6 +151,12 @@ The script therefore works in two phases:
    `install --aur` applies the upgrade from cache and requires proof of
    `transaction completed`.
 3. After one clean boot: `clean` prunes the package cache and lists orphans.
+
+From a terminal, without typing in a TTY:
+
+```bash
+sudo ./scripts/tools/update-now.sh   # queues the install, stops the GUI, runs detached
+```
 
 The engine behind it is `scripts/tools/update-engine.sh`; see
 [docs/UPDATES.md](docs/UPDATES.md) for the runbook and troubleshooting.

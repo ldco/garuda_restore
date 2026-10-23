@@ -73,6 +73,28 @@ local DB is checked with `pacman -Dk`, and downloads are retried up to 10 times
 6. `pacman -Syu --downloadonly` with retries — no package is installed.
 7. Prints the remaining TTY steps.
 
+## Without typing in a TTY: one command from Konsole
+
+The upgrade replaces the compositor you are typing in, so it cannot run as a
+child of that session. `update-now.sh` removes the manual TTY steps:
+
+```bash
+sudo ./scripts/tools/update-now.sh
+```
+
+1. copies the engine to `/usr/local/lib/garuda-restore/` (independent of this
+   repo and the external drive);
+2. queues `garuda-update-now.service` as a **transient systemd unit** — a kwin
+   hang cannot kill the transaction;
+3. prints a 20-second countdown (Ctrl+C cancels) while you save your work;
+4. stops the graphical session;
+5. ten seconds later the update runs offline from `/var/cache/pacman/pkg`,
+   on a text console.
+
+Watch it from a text console with `journalctl -u garuda-update-now -f`.
+When it finishes, `sudo reboot`. AUR packages are not touched in this mode;
+run `paru -Sua` after the reboot.
+
 ## What install does
 
 1. Refuses if an active Wayland/X11 session exists (`--force` overrides).
@@ -89,8 +111,9 @@ Logs:
 
 ## Troubleshooting
 
-- **`graphical session is active`** — `sudo systemctl isolate multi-user.target`,
-  then rerun `install`.
+- **`graphical session is active`** — either run `sudo ./scripts/tools/update-now.sh`
+  (it stops the GUI and detaches the transaction), or
+  `sudo systemctl isolate multi-user.target` and rerun `install`.
 - **Download failures during prepare** — rerun `prepare --skip-mirrors`
   (mirrors are already ranked); the loop resumes from the cache.
 - **Transaction fails at the same package every time** — inspect the error in

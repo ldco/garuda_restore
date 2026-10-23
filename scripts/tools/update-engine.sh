@@ -39,6 +39,7 @@ FORCE=0
 WITH_AUR=0
 WITH_JOURNAL=0
 SKIP_MIRRORS=0
+OFFLINE=0
 ENTRY_COUNTRY="${ENTRY_COUNTRY:-RU}"
 
 log()  { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
@@ -56,7 +57,8 @@ Modes:
                    (safe while the desktop is running; installs no packages)
                    --skip-mirrors: keep the current mirrorlists
   install          install from the local cache; refuses if a GUI session is
-                   active. Options: --aur (also update AUR), --force
+                   active. Options: --aur (also update AUR), --force,
+                   --offline (no DB sync / self-update; cache only)
   clean            prune the package cache after a successful update + reboot
   status           show pending updates, cache, disk and session state
 
@@ -302,6 +304,15 @@ install_update() {
         die "packages are missing from the cache and could not be downloaded. Run --prepare again (network needed)."
     fi
 
+    if [ "$OFFLINE" -eq 1 ]; then
+        # GARUDA_SLEEP_INHIBIT makes garuda-update skip the DB sync and the
+        # systemd-inhibit wrapper while keeping its hotfixes and post-update
+        # routines. garuda-update itself is already current, so nothing is
+        # fetched; the transaction is served from the package cache.
+        export GARUDA_SLEEP_INHIBIT=1
+        log "offline mode: no database sync, no self-update"
+    fi
+
     local before after rc=0
     before="$(grep -c 'transaction completed' "$PACMAN_LOG" || true)"
 
@@ -376,6 +387,7 @@ while [ "$#" -gt 0 ]; do
         --aur)     WITH_AUR=1 ;;
         --journal) WITH_JOURNAL=1 ;;
         --skip-mirrors) SKIP_MIRRORS=1 ;;
+        --offline) OFFLINE=1 ;;
         -h|--help) usage; exit 0 ;;
         *) die "unknown argument: $1 (try --help)" ;;
     esac
