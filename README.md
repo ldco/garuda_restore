@@ -22,8 +22,8 @@ Complete backup, restore, and system configuration management for Garuda KDE Lin
 check           # Quick check (10 areas)
 check --deep    # Deep analysis (18 areas)
 
-# System update & maintenance
-update
+# System update & maintenance (safe two-phase flow)
+./scripts/tools/system-update.sh
 ```
 
 ---
@@ -67,7 +67,8 @@ garuda-restore/
 │       ├── detect-hardware.sh             # Hardware detection (NEW)
 │       ├── apply-optimizations.sh         # Conditional optimizations (NEW)
 │       ├── system-health-check.sh         # check command
-│       └── system-update.sh               # update command
+│       ├── system-update.sh               # update command (safe front-end)
+│       └── update-engine.sh               # prepare/install/clean engine
 └── pacman-hooks/
     └── track-installs.hook                # Package tracking
 ```
@@ -135,17 +136,27 @@ check   # Run from anywhere
 **Checks:** temps, CPU/GPU, memory, disk, KWin, services, packages, filesystem, errors.
 
 ### system-update.sh
-**System update & maintenance** - updates, cleans, optimizes.
+**Safe system update & maintenance.** A full Plasma/Qt/Mesa/NVIDIA upgrade must
+not run from a live graphical session — it froze this machine on 2026-10-23.
+The script therefore works in two phases:
+
 ```bash
-update   # Run from anywhere
+./scripts/tools/system-update.sh
 ```
-**Does:**
-1. Updates system (paru/yay/pacman)
-2. Cleans package cache (keeps 2 versions)
-3. Removes orphan packages
-4. Cleans user cache (thumbnails)
-5. Vacuums journal logs
-6. Optimizes pacman database, fonts, desktop db
+
+1. From Plasma: `prepare` only — ranks mirrors, fixes the local DB, snapshots,
+   and downloads every package (retries on mirror hiccups). Nothing is installed.
+2. From a text console (`Ctrl+Alt+F3`, `sudo systemctl isolate multi-user.target`):
+   `install --aur` applies the upgrade from cache and requires proof of
+   `transaction completed`.
+3. After one clean boot: `clean` prunes the package cache and lists orphans.
+
+The engine behind it is `scripts/tools/update-engine.sh`; see
+[docs/UPDATES.md](docs/UPDATES.md) for the runbook and troubleshooting.
+
+The remaining steps of the interactive front-end clean dev caches (pip, npm,
+yarn), user thumbnails/Inkscape cache, journal logs, failed units, the pacman
+database, fonts and the desktop database.
 
 ### daily-backup.sh
 **Wrapper for automation** - calls `backup.sh` with extras:

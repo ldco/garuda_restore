@@ -13,6 +13,30 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENGINE="$TOOLS/update-engine.sh"
+
+# A full upgrade of Plasma/Qt/Mesa/NVIDIA under a live compositor froze this
+# machine on 2026-10-23 (docs/INCIDENT-2026-10-23-update-crash.md). Refuse to
+# install packages while a graphical session is active.
+gui_active() {
+    local sid type active
+    while read -r sid _; do
+        [ -n "$sid" ] || continue
+        type="$(loginctl show-session "$sid" -p Type --value 2>/dev/null || true)"
+        active="$(loginctl show-session "$sid" -p Active --value 2>/dev/null || true)"
+        case "$type" in
+            wayland|x11) [ "$active" = "yes" ] && return 0 ;;
+        esac
+    done < <(loginctl list-sessions --no-legend 2>/dev/null || true)
+    # A compositor on another VT is still live; only isolating multi-user.target
+    # (or rebooting) makes installing Qt/Plasma safe.
+    if pgrep -x kwin_wayland >/dev/null 2>&1; then return 0; fi
+    if pgrep -x kwin_x11 >/dev/null 2>&1; then return 0; fi
+    if pgrep -x Xorg >/dev/null 2>&1; then return 0; fi
+    return 1
+}
+
 echo ""
 echo -e "${BOLD}════════════════════════════════════════${NC}"
 echo -e "${BOLD}      SYSTEM UPDATE & MAINTENANCE${NC}"
@@ -36,23 +60,37 @@ echo ""
 echo -e "${BOLD}[1/9] System Update${NC}"
 echo "─────────────────────"
 
-read -p "Update system packages? [Y/n]: " UPDATE
-if [[ ! "$UPDATE" =~ ^[Nn]$ ]]; then
-    # Use garuda-update (handles mirrors, snapshots, keyrings)
-    # Falls back to paru/yay/pacman for non-Garuda systems
-    if command -v garuda-update &>/dev/null; then
-        garuda-update
-    elif command -v paru &>/dev/null; then
-        paru -Syu
-    elif command -v yay &>/dev/null; then
-        yay -Syu
-    else
-        sudo pacman -Syu
-    fi
-    echo -e "${GREEN}✓ System updated${NC}"
-else
-    echo "Skipped"
+if [ ! -x "$ENGINE" ]; then
+    echo -e "${RED}✗ missing update engine: $ENGINE${NC}"
+    exit 1
 fi
+
+if gui_active; then
+    echo -e "${YELLOW}Graphical session detected.${NC}"
+    echo "A full Plasma/Qt/Mesa/NVIDIA upgrade must not run from a live desktop:"
+    echo "it froze this machine on 2026-10-23. Running phase 1 only (download)."
+    echo ""
+    if ! sudo "$ENGINE" prepare; then
+        echo -e "${RED}✗ preparation failed - see /var/log/garuda/system-update-*.log${NC}"
+        exit 1
+    fi
+    echo ""
+    echo -e "${BOLD}Now finish from a text console:${NC}"
+    echo "  Ctrl+Alt+F3"
+    echo "  sudo systemctl isolate multi-user.target"
+    echo "  sudo $ENGINE install --aur"
+    echo "  sudo reboot"
+    echo ""
+    echo "After one clean boot: sudo $ENGINE clean"
+    exit 0
+fi
+
+if ! sudo "$ENGINE" install --aur; then
+    echo -e "${RED}✗ system update failed - see /var/log/garuda/system-update-*.log${NC}"
+    echo "Do NOT reboot if pacman.log has no 'transaction completed'."
+    exit 1
+fi
+echo -e "${GREEN}✓ System updated${NC}"
 echo ""
 
 # ============================================
