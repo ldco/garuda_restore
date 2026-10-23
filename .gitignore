@@ -32,3 +32,9 @@ scripts/tools/*.conf.local
 # CLAUDE.md              - project rules
 # .claude/config.json    - project configuration
 # .claude-data/context.md - project state (optional)
+
+# Local runtime state — machine-specific, never commit to a public remote
+.nocowboy/*.db
+.nutausik/
+.mimocode/
+configs/hwid

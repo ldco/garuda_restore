@@ -24,6 +24,7 @@
 |------|----------|----------|-----|
 | `xh` | HTTP client | Apidog | Terminal-native, Rust-based, instant, scriptable, 1.4 MB |
 | `bruno` | API GUI | Apidog | Open-source, collections as text files (git-friendly), local-first |
+| `openapi-tui` | API spec browser | — | Terminal UI to list, browse, and run APIs from OpenAPI specs (15 MB, Rust, MIT) |
 
 ---
 
@@ -53,14 +54,14 @@
 
 ### API Testing: Apidog vs xh+Bruno
 
-| Criterion | Apidog | xh | Bruno |
-|-----------|--------|----|-------|
-| Type | Full API IDE | CLI HTTP client | GUI collections |
-| Install size | 300 MB | 1.4 MB | 150 MB |
-| Open source | ❌ | ✅ MIT | ✅ MIT |
-| Git-friendly | ❌ Database | ✅ Pipeable | ✅ Text files |
-| Scriptable | JS in GUI | ✅ Shell pipes | ✅ JS in GUI |
-| Offline | ✅ | ✅ | ✅ |
+| Criterion | Apidog | xh | Bruno | openapi-tui |
+|-----------|--------|----|-------|-------------|
+| Type | Full API IDE | CLI HTTP client | GUI collections | API spec browser |
+| Install size | 300 MB | 1.4 MB | 150 MB | 15 MB |
+| Open source | ❌ | ✅ MIT | ✅ MIT | ✅ MIT |
+| Git-friendly | ❌ Database | ✅ Pipeable | ✅ Text files | ✅ YAML/JSON specs |
+| Scriptable | JS in GUI | ✅ Shell pipes | ✅ JS in GUI | ❌ Browse-only |
+| Offline | ✅ | ✅ | ✅ | ✅ |
 
 **Verdict: xh + Bruno** — xh for quick terminal requests, Bruno if GUI collections needed. Both open-source, git-friendly, no accounts.
 
@@ -132,9 +133,10 @@
 | xh | ✅ Terminal HTTP client (1.4 MB, Rust, instant) |
 | curl + jq | ✅ Already present, universal |
 | Bruno | ✅ Installed — offline-first collections, git-friendly |
+| openapi-tui | ✅ Terminal UI to browse OpenAPI specs, run endpoints, view schemas — lightweight (15 MB), complements xh/Bruno |
 | Apidog | ❌ Removed — going commercial, replaced by xh+Bruno |
 
-**Rationale:** Apidog is a full API IDE with cloud dependency (mock servers, docs gen, team sharing). xh covers 90% of daily needs (quick HTTP requests). Bruno covers the GUI/collections gap when needed. Both are free, open-source, git-friendly, no accounts.
+**Rationale:** Apidog is a full API IDE with cloud dependency (mock servers, docs gen, team sharing). xh covers 90% of daily needs (quick HTTP requests). Bruno covers the GUI/collections gap when needed. openapi-tui rounds out the stack — browse and run endpoints directly from any OpenAPI spec file without leaving the terminal. All free, open-source, git-friendly, no accounts.
 
 ### Database
 | Tool | Verdict |

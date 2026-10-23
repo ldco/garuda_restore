@@ -8,7 +8,28 @@
 
 CPU_THRESHOLD=80        # Alert if process uses more than this %
 TIME_THRESHOLD=3600     # Alert if running more than this (seconds = 1 hour)
-LOG_FILE="$HOME/.local/share/garuda-backup/watchdog.log"
+# Must match the deployment path used by cpu-watchdog.service and run-hh-agent.sh
+LOG_FILE="$HOME/.local/share/garuda-backup-scripts/watchdog.log"
+
+# ---------------------------------------------------------------------------
+# THROTTLE
+# ---------------------------------------------------------------------------
+# This script has two callers: cpu-watchdog.timer (every 15 min, correct) and
+# run-hh-agent.sh (every 5 s, far too often). Without a guard the 5s caller
+# turns this into ~17k full `ps aux` scans per day. Perform the real scan at
+# most once per THROTTLE_SECONDS, whoever calls it.
+# ---------------------------------------------------------------------------
+THROTTLE_SECONDS=600
+THROTTLE_STAMP="${XDG_CACHE_HOME:-$HOME/.cache}/garuda-cpu-watchdog.stamp"
+if [ -f "$THROTTLE_STAMP" ]; then
+    _last=$(stat -c %Y "$THROTTLE_STAMP" 2>/dev/null || echo 0)
+    _now=$(date +%s)
+    if [ $((_now - _last)) -lt "$THROTTLE_SECONDS" ]; then
+        exit 0
+    fi
+fi
+mkdir -p "$(dirname "$THROTTLE_STAMP")"
+touch "$THROTTLE_STAMP"
 
 # ============================================================================
 # WHITELIST - Based on YOUR installed apps
@@ -65,6 +86,14 @@ WHITELIST=(
     # Media (installed: vlc, mpv, spotify)
     "vlc"
     "mpv"
+
+    # NoCowboy agent stack — normal workload on this machine, never a runaway
+    "nocowboy"
+    "bun"
+    "rg"                # ripgrep, spawned heavily by agent test runs
+    "esbuild"
+    "tsc"
+    "pyright"
 
     # System
     "pacman"

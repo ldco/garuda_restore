@@ -1,0 +1,43 @@
+{
+    "name": "LIBERTY-ROUTING",
+    "globalProxy": true,
+    "blockIp": [],
+    "blockSites": [],
+    "directIp": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+        "224.0.0.0/4",
+        "255.255.255.255"
+    ],
+    "directSites": [
+        "domain:.ru",
+        "domain:.xn--p1ai",
+        "geosite:category-ru"
+    ],
+    "proxyIp": [],
+    "proxySites": [],
+    "dnsHosts": {
+        "cloudflare-dns.com": "1.1.1.1",
+        "dns.google": "8.8.8.8"
+    },
+    "domainStrategy": "IPIfNonMatch",
+    "domesticDnsDomain": "https://dns.google/dns-query",
+    "domesticDnsIp": "8.8.8.8",
+    "domesticDnsType": "DoH",
+    "fakeDns": false,
+    "geoIpUrl": "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat",
+    "geoSiteUrl": "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat",
+    "remoteDnsDomain": "https://cloudflare-dns.com/dns-query",
+    "remoteDnsIp": "1.1.1.1",
+    "remoteDnsType": "DoH",
+    "routingOrder": "block-direct-proxy",
+    "lastUpdated": 1779555892,
+    "timeLoadGeoIp": 1779562195,
+    "timeLoadGeoSite": 1779562195,
+    "locationAssetPath": "/home/ldco/.local/share/Happ/routing/LIBERTY-ROUTING",
+    "geoFilesError": 0,
+    "lastGeoIpString": "23.05.2026 21:49:55, size: 18.32 Mb",
+    "lastGeoSiteString": "23.05.2026 21:49:55, size: 10.03 Mb"
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Bluetooth monitor - record connect/disconnect reasons for HID devices
+
+[Service]
+Type=simple
+ExecStart=/bin/bash %h/.local/share/garuda-backup-scripts/bt-monitor.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
