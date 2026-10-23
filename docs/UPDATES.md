@@ -3,6 +3,20 @@
 Status: **active runbook** — created 2026-10-23 after the third failed attempt
 to install 679 pending packages.
 
+## Is a TTY required for every update?
+
+**No.** There is no Arch or KDE rule that packages must be installed from a
+text console. The Arch Wiki only states that upgrades are not applied to
+running processes and that a reboot is the most secure way to finish
+([System maintenance § Restart or reboot after upgrades](https://wiki.archlinux.org/title/System_maintenance#Restart_or_reboot_after_upgrades)).
+Garuda recommends `garuda-update` and normally it runs fine from Konsole.
+
+The offline/TTY step is for one case only: when the transaction replaces the
+**running** desktop and graphics stack. The 2026-10-23 update was 679 packages
+including Plasma 6.7→6.8, Qt 6.11→6.12, KIO/KF6, Mesa, Vulkan, NVIDIA and the
+kernel. `kded6` loaded a KIO plugin built for Qt 6.12 while still running
+Qt 6.11; kwin hung. Ordinary weekly updates are fine from a terminal emulator.
+
 ## TL;DR
 
 ```bash

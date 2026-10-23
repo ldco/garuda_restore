@@ -137,9 +137,10 @@ check   # Run from anywhere
 **Checks:** temps, CPU/GPU, memory, disk, KWin, services, packages, filesystem, errors.
 
 ### system-update.sh
-**Safe system update & maintenance.** A full Plasma/Qt/Mesa/NVIDIA upgrade must
-not run from a live graphical session — it froze this machine on 2026-10-23.
-The script therefore works in two phases:
+**Safe system update & maintenance.** A transaction that replaces the running
+Plasma/Qt/Mesa/NVIDIA stack must not run from that live session — it froze this
+machine on 2026-10-23. Ordinary updates are fine from Konsole; this is not an
+Arch-wide rule. The script works in two phases:
 
 ```bash
 ./scripts/tools/system-update.sh
