@@ -1,0 +1,16 @@
+# FedoraKDE - netinstall kickstart (fully unattended).
+# Anaconda starts from the kernel command line, so %packages applies.
+# Only packages that exist in the Fedora 45 repositories belong here;
+# everything else (RPM Fusion, Terra, COPR, flatpaks) is installed by
+# `install.sh provision` on first boot.
+
+@INCLUDE_COMMON@
+
+network --bootproto=dhcp --device=link --activate --hostname=ldco
+
+%packages
+@^kde-desktop-environment
+@PACKAGES@
+%end
+
+@INCLUDE_POST@

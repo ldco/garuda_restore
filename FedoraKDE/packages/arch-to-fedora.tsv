@@ -1,0 +1,131 @@
+# arch_pkg	fedora_pkg	mode	note
+# mode: native | flatpak | manual | drop
+firefox	firefox	native	browser
+chromium	chromium	native	browser
+brave-bin	com.brave.Browser	flatpak	official rpm repo also exists
+google-chrome	google-chrome-stable	manual	Google dnf repo
+firedragon	firefox	native	Arch-only; substituted
+torbrowser-launcher	torbrowser-launcher	native	
+telegram-desktop	org.telegram.desktop	flatpak	
+signal-desktop	signal-desktop	manual	Signal dnf repo
+discord	discord	native	RPM Fusion
+zoom	us.zoom.Zoom	flatpak	
+wire-desktop	com.wire.WireDesktop	flatpak	
+neochat	neochat	native	
+shortwave	de.haeckerfelix.Shortwave	flatpak	
+git	git	native	
+nodejs	nodejs	native	
+npm	npm	native	
+pnpm	pnpm	manual	corepack enable
+docker	docker-ce	manual	docker-ce repo
+docker-compose	docker-compose-plugin	manual	docker-ce repo
+visual-studio-code-bin	code	manual	Microsoft repo
+cursor-bin	cursor	manual	official rpm
+zed	zed	manual	official repo
+sublime-text-4	sublime-text	manual	official repo
+android-studio	android-studio	native	RPM Fusion
+beekeeper-studio-bin	com.beekeeperstudio.BeekeeperStudio	flatpak	
+bruno	com.usebruno.Bruno	flatpak	
+gh	gh	native	
+lazygit	lazygit	native	
+gitui	gitui	native	
+lazysql	lazysql	manual	
+opencode-bin	opencode	manual	npm
+kilo-bin	kilo	manual	
+traycer-desktop-bin	traycer	manual	
+rust	cargo	native	
+go	golang	native	
+python-pip	python3-pip	native	
+pyenv	pyenv	manual	
+flutter-bin	flutter	manual	
+elixir	elixir	native	
+erlang	erlang	native	
+ansible	ansible	native	
+jq	jq	native	
+vlc	vlc	native	
+mpv	mpv	native	
+obs-studio	obs-studio	native	
+gimp	gimp	native	
+krita	krita	native	
+blender	blender	native	
+darktable	darktable	native	
+rawtherapee	rawtherapee	native	
+kdenlive	kdenlive	native	
+audacity	audacity	native	
+ardour	ardour	native	
+handbrake	handbrake	native	RPM Fusion
+k3b	k3b	native	
+libreoffice-fresh	libreoffice	native	
+okular	okular	native	
+ghostwriter	ghostwriter	native	
+foliate	foliate	native	
+obsidian	md.obsidian.Obsidian	flatpak	
+btop	btop	native	
+fastfetch	fastfetch	native	
+htop	htop	native	
+ripgrep	ripgrep	native	
+fd-find	fd-find	native	
+bat	bat	native	
+eza	eza	native	
+zoxide	zoxide	native	
+fzf	fzf	native	
+rclone	rclone	native	
+gparted	gparted	native	
+gsmartcontrol	gsmartcontrol	native	
+veracrypt	veracrypt	manual	official installer
+bitwarden	com.bitwarden.desktop	flatpak	
+flameshot	flameshot	native	
+wl-clipboard	wl-clipboard	native	
+autorandr	autorandr	native	
+tailscale	tailscale	manual	Tailscale dnf repo
+happ	happ	manual	official package
+xray-bin	xray	manual	
+remmina	remmina	native	
+filezilla	filezilla	native	
+nmap	nmap	native	
+whois	whois	native	
+traceroute	traceroute	native	
+bind	bind-utils	native	dig
+net-tools	net-tools	native	
+wireguard-tools	wireguard-tools	native	
+openvpn	openvpn	native	
+virtualbox-host-dkms	akmod-VirtualBox	native	RPM Fusion
+qbittorrent	qbittorrent	native	
+deluge	deluge	native	
+steam	steam	native	RPM Fusion
+zsh	zsh	native	
+konsole	konsole	native	
+kitty	kitty	native	
+yakuake	yakuake	native	
+nnn	nnn	native	
+ranger	ranger	native	
+broot	broot	native	
+micro	micro	native	
+nano	nano	native	
+conky	conky	native	
+inkscape	inkscape	native	
+scribus	scribus	native	
+mypaint	mypaint	native	
+kolourpaint	kolourpaint	native	
+fontforge	fontforge	native	
+birdfont	birdfont	native	
+gwenview	gwenview	native	
+kcalc	kcalc	native	
+ark	ark	native	
+kate	kate	native	
+spectacle	spectacle	native	
+dolphin	dolphin	native	
+kdeconnect	kdeconnect	native	
+kwalletmanager	kwalletmanager	native	
+kimageformats	kimageformats	native	
+ffmpegthumbs	ffmpegthumbs	native	
+ttf-fira-sans	fira-sans-fonts	native	
+ttf-dejavu	dejavu-sans-fonts	native	
+ttf-liberation	liberation-fonts	native	
+noto-fonts	google-noto-sans-fonts	native	
+noto-fonts-emoji	google-noto-emoji-fonts	native	
+terminus-font	terminus-fonts	native	
+ttf-ms-fonts	mscore-fonts	manual	RPM Fusion tainted
+ollama	ollama	manual	official installer
+whisper-cpp-git	whisper-cpp	manual	
+exodus	exodus	manual	AppImage

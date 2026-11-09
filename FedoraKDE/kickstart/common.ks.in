@@ -1,0 +1,32 @@
+# FedoraKDE kickstart header - templated by scripts/build-usb.sh.
+
+lang en_US.UTF-8
+keyboard --vckeymap=us --xlayouts='us,ru,il' --switch=grp:alt_shift_toggle
+timezone Europe/Moscow --utc
+
+rootpw --lock
+user --name=ldco --uid=1000 --groups=wheel --shell=/bin/zsh --iscrypted --password=@USER_HASH@
+@SSHKEY_LINE@
+
+selinux --enforcing
+firewall --enabled
+services --enabled=firewalld,NetworkManager,chronyd,fstrim.timer
+
+ignoredisk --only-use=nvme1n1
+zerombr
+clearpart --all --initlabel --drives=nvme1n1
+
+part /boot/efi --fstype=efi  --size=1024 --ondisk=nvme1n1 --label=EFI
+part /boot     --fstype=ext4 --size=1024 --ondisk=nvme1n1
+part btrfs.01  --size=1 --grow --ondisk=nvme1n1 --encrypted --luks-version=luks2 @LUKS_OPT@
+btrfs none --label=fedora btrfs.01
+btrfs /          --subvol --name=@        LABEL=fedora
+btrfs /home      --subvol --name=@home    LABEL=fedora
+btrfs /var/log   --subvol --name=@log     LABEL=fedora
+btrfs /var/cache --subvol --name=@cache   LABEL=fedora
+btrfs /srv       --subvol --name=@srv     LABEL=fedora
+btrfs /root      --subvol --name=@root    LABEL=fedora
+btrfs /var/tmp   --subvol --name=@var-tmp LABEL=fedora
+
+bootloader --timeout=3 --append="quiet"
+firstboot --disable
