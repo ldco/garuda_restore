@@ -23,7 +23,7 @@
 | `MemoryHigh` as a soft limit | **Rejected** | Measured on this host: `MemoryHigh` below `MemoryMax` stalls an anonymous-heavy process in reclaim without ever firing the kill — a livelock. Use a hard `MemoryMax` only. |
 | `OOMPolicy=kill` on the scope | Accepted, not the protection | The cgroup's own `MemoryMax` is what terminates the scope; `OOMPolicy` only affects multi-process units. |
 | External displays through the dGPU, light desktop on the iGPU | **Not possible here** | Both external ports are wired to the dGPU: `card1` (NVIDIA) owns `DP-1` (**the USB-C port**) and `HDMI-A-1`; `card2` (Intel) owns only `eDP-2`. KWin composites the externals on the dGPU, 33–52 W at the desktop. The only lever is refresh (144→60 Hz: 26 W, P3→P5) or cooling maintenance. |
-| LTS kernel baseline | **Installed** | `linux-lts 6.18.58-1` with DKMS `nvidia/615.78.08, 6.18.58-1-lts` and `/boot/initramfs-linux-lts.img`; not the default kernel; boot test pending. Installer: `scripts/tools/lts-fallback-install.sh`. |
+| LTS kernel baseline | **Installed** | `linux-lts 6.18.62-1` + headers, DKMS `nvidia/615.78.08` and `vboxhost/7.2.22_OSE` built for `6.18.62-1-lts`, `/boot/initramfs-linux-lts.img`; **not** the default kernel (`GRUB_DEFAULT=0`, no `GRUB_TOP_LEVEL`); boot test still pending. `scripts/tools/lts-fallback-install.sh --make-default` switches the default through `GRUB_TOP_LEVEL=/boot/vmlinuz-linux-lts` and verifies the result in `grub.cfg` before exiting (`--revert-default` undoes it). |
 | Block unannounced NVIDIA bumps | Not via `IgnorePkg` | `nvidia-open-dkms` pins an exact `nvidia-utils=…` version; pinning half the pair aborts `garuda-update`. The snapshot-before-update + `snapper rollback` path is the control. |
 | ZRAM + NVMe swapfile | **True** | 32 GiB `/swap/swapfile` (prio -1) + 31 GiB zram (prio 100); zram is used first. |
 | Wayland explicit sync | **True** | NVIDIA 615 ≥ 555, KWin 6.8.1; nothing to enable. |
@@ -56,7 +56,7 @@
 | Battery | 80 % cap via `asusctl` | `systemd/battery-charge-limit.service` |
 | Display | per-output scale/refresh; `kscreen-doctor` mode indices | `docs/QUICK-REFERENCE.md` |
 | Sleep | sleep/suspend/hibernate targets masked (14 fixes failed; decision documented) | `docs/SLEEP-WAKE-ISSUES.md` |
-| Kernel fallback | LTS installed, DKMS built, boot entry present | `scripts/tools/lts-fallback-install.sh` |
+| Kernel fallback | LTS installed, DKMS built, boot entry present, `--make-default` / `--revert-default` for the default kernel | `scripts/tools/lts-fallback-install.sh` |
 
 ---
 
@@ -65,7 +65,7 @@
 The protocol's staged model is implemented as a **prepared, not applied** update:
 
 1. `sudo ./scripts/tools/update-engine.sh prepare` — refresh mirrors, `pacman -Syy`, fix local deps, take a snapshot, download every package. Safe under Plasma; touches no live binary.
-2. `sudo ./scripts/tools/update-now.sh` — queues a transient system unit, stops the GUI, installs on tty1, reboots. This is the only step that changes the system.
+2. `sudo ./scripts/tools/update-now.sh` — verifies the staged cache, starts `garuda-update-now.service` (Conflicts=graphical.target, so the desktop stops as a dependency effect), installs from the cache with no network, reboots. This is the only step that changes the system.
 3. Rollback if the reboot fails: GRUB → `Garuda Linux snapshots` → boot the pre-update snapshot → `sudo snapper -c root rollback <N>` → reboot.
 
 **No automatic apply.** A timer may *prepare* off-peak; installing always requires an explicit TTY run.

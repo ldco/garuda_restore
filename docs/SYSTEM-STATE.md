@@ -4,7 +4,29 @@
 
 | Item | Value |
 |---|---|
-| Kernel | `7.2.11-zen1-1-zen` (linux-lts not installed; fallback plan in the stabilization guide) |
+
+### Workstation stabilization: audited third-party advice (2026-11-11)
+
+A generic "convert Garuda into a quiet workstation" recipe was audited against
+this machine. Two items are already true, three are wrong here, and one would
+actively harm it.
+
+| Recipe item | Verdict on this machine |
+|---|---|
+| Install `linux-lts` + headers | **already done** — `linux-lts 6.18.62-1`, DKMS `nvidia/615.78.08` + `vboxhost/7.2.22_OSE` built for `6.18.62-1-lts`, initramfs present. Not default (`GRUB_DEFAULT=0`, no `GRUB_TOP_LEVEL`); boot test pending. Switch: `scripts/tools/lts-fallback-install.sh --make-default` |
+| Remove `linux-zen` "to prevent accidental boots" | **rejected** — the repo's architecture is *LTS as the fallback* (ARCHITECTURE-PROTOCOL § Kernel fallback). Removing zen deletes the second boot option and the safety net that the 2026-10-23 incident depended on |
+| `IgnorePkg = nvidia-dkms nvidia-utils lib32-nvidia-utils` | **rejected, and the names are wrong** — this box runs `nvidia-open-dkms` (not `nvidia-dkms`). `lib32-nvidia-utils` is already one revision behind (`615.78.08-1` vs `-2`); a permanent pin freezes that mismatch, and pinning the driver while the kernel/Mesa/Qt move is a partial upgrade — the exact class of failure Arch forbids. Protection instead: snapper `before-update-*` snapshot + `grub-btrfs` rollback + the verified staging gate. A work-week freeze belongs in one transaction (`pacman -Su --ignore=…`), not in `pacman.conf` |
+| Disable `ananicy-cpp` / `nohang` | **already true** — `ananicy-cpp 1.2.0-1` is `inactive`/`disabled`, `nohang` and `earlyoom` are not installed, `systemd-oomd` is active. Nothing to change |
+| Add a 16 GB swapfile | **redundant** — 62 GiB of swap already: `/swap/swapfile` 32 GiB (kept outside the snapshotted root) + `zram0` 31 GiB. A swapfile at `/` would also land inside a snapshotted subvolume, which breaks swap after a rollback |
+| `systemd-run --user --scope -p MemoryHigh=22G -p MemoryMax=26G` | **rejected** — measured here: `MemoryHigh` below `MemoryMax` livelocks an anon-heavy runaway instead of reclaiming it (SOLUTION: OOM-WEZTERM.md), and a `--user --scope` escapes `harness.slice`, losing the `CPUQuota=400%` thermal guard. The working pattern is `MemoryMax=18G` + `MemorySwapMax=4G` + `ManagedOOMMemoryPressure=auto` inside the slice, with the harness supervisor as L2 |
+
+What the recipe omits and this repo already has: snapshot-before-update,
+`grub-btrfs` menu rollback, a staged-cache gate that refuses to touch the
+desktop, PL1 45 W + CPU quota, and an OOM containment model measured on this
+hardware. The open stability item is **sleep**, which is deliberately masked
+(see SLEEP-WAKE-ISSUES.md) and is now worth one controlled re-test on the
+coherent Plasma 6.8.2 / Qt 6.12 / kernel 7.2.15 stack.
+| Kernel | `7.2.15-zen1-1-zen` (booted); `linux-lts 6.18.62-1` installed as a fallback and **not** the default - `GRUB_DEFAULT=0`, no `GRUB_TOP_LEVEL`. Switch: `sudo ./scripts/tools/lts-fallback-install.sh --make-default` (boot test still pending) |
 | GPU driver | `nvidia-open-dkms 615.78.08` + `nvidia-utils`/`lib32-nvidia-utils` 615.78.08 |
 | Desktop | KDE Plasma 6.8.1 / KWin 6.8.1, Wayland |
 | Displays | `eDP-2` 2560x1440@165 scale 1.5 on **card2 (Intel)**; `DP-1` (**USB-C**) + `HDMI-A-1` both on **card1 (NVIDIA)** at 2560x1440@144 — the iGPU's `DP-2`/`DP-3` are unused |

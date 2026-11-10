@@ -39,6 +39,23 @@ rm ~/.config/pacman/makepkg.conf
 
 ---
 
+## 2026-11-11 - Update install actually runs: offline gate + real system unit
+
+| Area | Change | Rollback |
+|---|---|---|
+| Updates (blocker) | `update-now.sh` installs nothing since 2026-11-11 00:51: it started a transient `systemd-run` unit that the graphical teardown stopped 5 s later ("Deactivated successfully", nothing installed). Replaced with the real unit `systemd/garuda-update-now.service` (`Conflicts=graphical.target` + `After=graphical.target`), owned by pid 1, so the desktop stops as a dependency effect and the install cannot be killed by it. The runner no longer uses `--force`, so a lingering compositor returns to the desktop instead of replacing Qt under a dying Plasma | `git revert <commit>` |
+| Updates (correctness) | `install --offline` used to run `pacman -Su --downloadonly` unconditionally: on 2026-11-10 it downloaded 8.7 GiB on tty1 after the desktop was already stopped. Offline now verifies the staging manifest and every package file in `/var/cache/pacman/pkg` (network-free, ~1 s) and refuses with the missing names; `--check-cache` exposes the same check read-only and root-free | — |
+| Updates (safety) | `update-now.sh` runs that check **before** stopping the desktop. A cache purged by `pacman -Sc` (exactly what happened at 2026-11-10 22:18) now refuses in ~1 s instead of starting an 8.7 GiB download on a text console | — |
+| Updates (unattended) | No console login at any point: the runner stops `getty@tty1` (no login prompt), takes the screen and mirrors its output to tty1, the journal and `/var/log/garuda/update-now-run.log` via `tee` to three sinks; the screen does not blank. On failure `garuda-update-restore.service` (a separate unit, so starting `graphical.target` cannot kill it) brings the desktop back and posts a `notify-send` notification | — |
+| Updates (observability) | `prepare` writes `/var/lib/garuda-restore/staged.manifest` (target list + sha256) and verifies the cache after download; offline runs audit their own log for `downloading ` and warn; the unit writes to the journal and `/var/log/garuda/update-now-run.log` | — |
+| Updates (tests) | `scripts/tools/tests/test-staging-gate.sh` — 21 assertions, no root needed: empty cache fails fast with names, complete cache passes inside `unshare -rn` (no network), stale manifest and stale databases refuse, `update-now --dry-run` never reaches `systemctl`/`chvt` | — |
+
+The 2026-11-10 run also lost its staged set to `sudo pacman -Sc` (22:18),
+which deletes cached packages that are not the installed version. Never prune
+the cache between `prepare` and `install`; the gate now catches it.
+
+---
+
 ## 2026-11-10 - Audit fixes (launcher, thermal doc, battery unit, sleep, docs)
 
 | Area | Change | Rollback |

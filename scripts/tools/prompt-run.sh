@@ -11,7 +11,8 @@
 #   +1 hour, then every 3 hours, until INSTALL or until the next Friday run
 #   (the Friday run resets the cadence).
 #
-# "Install now" hands over to update-now.sh (GUI stops, install on tty1, reboot).
+# "Install now" hands over to update-now.sh (it gates the cache, stops the
+# desktop, installs from the cache as a system unit and reboots).
 # =============================================================================
 set -u
 

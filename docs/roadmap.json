@@ -207,6 +207,27 @@
           "path": "scripts/tools/maintenance-run.sh"
         }
       ]
+    },
+    {
+      "id": "update-install-integrity",
+      "title": "The update install actually runs: offline cache gate + a real system unit",
+      "status": "in_progress",
+      "version": "v0.2.1",
+      "notes": "2026-11-11 00:51: update-now.sh started a transient `systemd-run` unit that the graphical teardown stopped after 5 s ('Deactivated successfully'); nothing was installed and the user had to reboot from a tty login prompt. Twice now (2026-10-23 17:38, 2026-11-11 00:51) the transient unit lost the race with `systemctl isolate`. Replaced by the real unit systemd/garuda-update-now.service with Conflicts=graphical.target + After=graphical.target: the desktop stops as a dependency effect, pid 1 owns the runner, and the install cannot be killed by the teardown. The runner no longer passes --force, so a lingering compositor returns to the desktop instead of replacing Qt under a dying Plasma. install --offline no longer runs `pacman -Su --downloadonly` (that downloaded 8.7 GiB on tty1 on 2026-11-10 after the desktop had already been stopped): it verifies the staging manifest /var/lib/garuda-restore/staged.manifest and every package file in the cache, network-free, in ~1 s, and refuses with the missing names. `install --check-cache` is the same check, read-only and root-free; update-now.sh runs it BEFORE stopping the desktop, so a cache purged by `pacman -Sc` (2026-11-10 22:18) refuses instead of downloading. prepare verifies the cache after download and writes the manifest; offline runs audit their own log for 'downloading ' lines. Output: the unit writes to the journal and /var/log/garuda/update-now-run.log; update-now.sh --dry-run runs every check without touching the desktop. Tests: scripts/tools/tests/test-staging-gate.sh (21 assertions, no root, one case inside `unshare -rn`). Not yet exercised end-to-end on the machine: the root path needs a real install run. Unattended end to end: the runner stops getty@tty1 so there is no login prompt, mirrors output to tty1 + journal + transcript (tee to three sinks, fd 3 keeps the journal), disables console blanking, and on failure queues garuda-update-restore.service - a separate unit that restarts graphical.target, waits for the session and posts a notify-send notification.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "systemd/garuda-update-now.service"
+        },
+        {
+          "type": "file",
+          "path": "scripts/tools/update-now.sh"
+        },
+        {
+          "type": "file",
+          "path": "scripts/tools/tests/test-staging-gate.sh"
+        }
+      ]
     }
   ],
   "status_model": 2

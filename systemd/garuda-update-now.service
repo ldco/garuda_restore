@@ -1,0 +1,21 @@
+[Unit]
+Description=Install the staged Garuda update without a graphical session
+# Starting this unit stops the desktop as a dependency effect: Conflicts pulls
+# graphical.target down and After orders us after its teardown, so no Qt/Mesa
+# file is replaced while Plasma is still alive. The system manager - not a
+# desktop session - owns the process, so nothing tears it down mid-transaction
+# (a transient `systemd-run` unit was stopped by the graphical teardown on
+# 2026-10-23 17:38 and again on 2026-11-11 00:51, installing nothing).
+Conflicts=graphical.target
+After=graphical.target
+# Written by update-now.sh right before the start; the runner removes it, so a
+# plain `systemctl start` later cannot reinstall an old staged set by accident.
+ConditionPathExists=/var/lib/garuda-restore/update-now.request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/garuda-restore/update-now-run.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=infinity
+TimeoutStopSec=infinity

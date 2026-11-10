@@ -5,7 +5,7 @@
 # Installs update-engine.sh + prepare-run.sh into /usr/local/lib/garuda-restore
 # (so the timer never depends on this repo's external drive), then installs and
 # enables update-prepare.timer. The timer only DOWNLOADS: it never installs,
-# upgrades or reboots. Applying stays a deliberate TTY action (update-now.sh).
+# upgrades. Applying stays a deliberate, gated action (update-now.sh).
 #
 #   sudo ./scripts/tools/install-update-timer.sh              # install + enable
 #   ./scripts/tools/install-update-timer.sh --dry-run         # show the plan
@@ -45,6 +45,8 @@ install_timer() {
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
     run install -Dm755 "$SELF_DIR/prompt-run.sh"    "$DEST/prompt-run.sh"
     run install -Dm755 "$SELF_DIR/maintenance-run.sh" "$DEST/maintenance-run.sh"
+    run install -Dm644 "$SELF_DIR/../../systemd/garuda-update-now.service" \
+        "$DEST/garuda-update-now.service"
 
     say "configuration (MODE=semi: warn, stage, ask)"
     if [ -e /etc/garuda-restore/update.conf ] && [ "$DRY_RUN" -eq 0 ]; then
@@ -67,6 +69,13 @@ install_timer() {
     run systemctl enable --now update-prepare.timer
     run systemctl enable --now update-prompt.timer
     run systemctl enable update-maintenance.service
+
+    # An install that finished before the unit existed leaves its flag behind:
+    # run the maintenance now instead of waiting for the next boot.
+    if [ "$DRY_RUN" -eq 0 ] && [ -e /var/lib/garuda-restore/post-update.pending ]; then
+        say "an applied update is waiting for maintenance - running it now"
+        run systemctl start update-maintenance.service || true
+    fi
 
     if [ "$DRY_RUN" -eq 0 ]; then
         printf '\n'

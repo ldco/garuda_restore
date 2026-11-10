@@ -96,9 +96,11 @@ layer1() {
     if is_root; then
         run install -Dm755 "$TOOLS/update-engine.sh" /usr/local/lib/garuda-restore/update-engine.sh
         run install -Dm755 "$TOOLS/update-now.sh" /usr/local/lib/garuda-restore/update-now.sh
+        run install -Dm644 "$ROOT_DIR/systemd/garuda-update-now.service" /usr/local/lib/garuda-restore/garuda-update-now.service
     else
         info "root-only: sudo install -Dm755 $TOOLS/update-engine.sh /usr/local/lib/garuda-restore/"
         info "root-only: sudo install -Dm755 $TOOLS/update-now.sh /usr/local/lib/garuda-restore/"
+        info "root-only: sudo install -Dm644 $ROOT_DIR/systemd/garuda-update-now.service /usr/local/lib/garuda-restore/"
     fi
 
     say "kernel fallback (linux-lts)"

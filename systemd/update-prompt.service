@@ -4,7 +4,7 @@ ConditionPathExists=/usr/local/lib/garuda-restore/prompt-run.sh
 
 [Service]
 Type=oneshot
-# update-now.sh isolates multi-user.target; this unit must outlive that.
+# update-now.sh stops graphical.target; this unit must outlive that.
 IgnoreOnIsolate=yes
 ExecStart=/usr/local/lib/garuda-restore/prompt-run.sh
 TimeoutStartSec=infinity
