@@ -23,6 +23,10 @@
 # =============================================================================
 set -Eeuo pipefail
 
+# Note: asus-wmi warns that this sysfs path is deprecated in favour of
+# /sys/class/firmware_attributes (asus-armoury). The new class does not exist on
+# kernel 7.2.11 here, so the WMI path is the working one; revisit after a kernel
+# upgrade that provides firmware_attributes.
 WMI=/sys/devices/platform/asus-nb-wmi
 SLICE_DROPIN_DIR="$HOME/.config/systemd/user/harness.slice.d"
 SLICE_DROPIN="$SLICE_DROPIN_DIR/zz-cpu.conf"
@@ -44,6 +48,10 @@ status() {
         --format=csv,noheader 2>/dev/null | sed 's/^/gpu: /' || true
     printf '%-28s %s\n' "load:" "$(cut -d' ' -f1-3 /proc/loadavg)"
     printf '%-28s %s\n' "PL1 / PL2 (cached):" "$(cat "$WMI/ppt_pl1_spl" 2>/dev/null || echo n/a) / $(cat "$WMI/ppt_pl2_sppt" 2>/dev/null || echo n/a)"
+    local unit_state
+    unit_state=$(systemctl is-enabled asus-thermal-cap.service 2>/dev/null) || unit_state=absent
+    printf '%-28s %s\n' "PL1 cap unit:" "$unit_state"
+    [ "$unit_state" = absent ] && printf '%-28s %s\n' "note:" "PL1 is runtime-only right now; a reboot restores the firmware default"
     printf '%-28s %s\n' "EPP:" "$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo n/a)"
     printf '%-28s %s\n' "governor:" "$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
     printf '%-28s %s\n' "throttle count:" "$(cat "$THROTTLE_DIR/package_throttle_count" 2>/dev/null || echo n/a)"
@@ -120,7 +128,9 @@ revert() {
     for c in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
         printf 'performance\n' > "$c" 2>/dev/null || true
     done
-    printf 'removed the boot unit; EPP=performance; PL1 returns to the firmware default on reboot\n'
+    printf 'removed the boot unit; EPP=performance\n'
+    printf 'PL1 is STILL %s W at runtime - the kernel cannot read the firmware default back,\n' "$(cat "$WMI/ppt_pl1_spl" 2>/dev/null || echo '?')"
+    printf 'so the only way to restore it is a reboot.\n'
 }
 
 case "${1:-status}" in
