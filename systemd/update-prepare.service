@@ -1,5 +1,5 @@
 [Unit]
-Description=Stage the Garuda upgrade in the background (download only)
+Description=Stage and apply the Garuda upgrade (Friday 22:00 MSK)
 Documentation=file:///usr/local/lib/garuda-restore/prepare-run.sh
 Wants=network-online.target
 After=network-online.target
@@ -8,8 +8,11 @@ ConditionACPower=true
 
 [Service]
 Type=oneshot
+# update-now.sh isolates multi-user.target; this unit must outlive that.
+IgnoreOnIsolate=yes
 ExecStart=/usr/local/lib/garuda-restore/prepare-run.sh
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
-TimeoutStartSec=2h
+# The transaction itself must never be killed by a start timeout.
+TimeoutStartSec=infinity

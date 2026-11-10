@@ -1,5 +1,5 @@
 [Unit]
-Description=Weekly off-peak staging of the Garuda upgrade (Friday 22:00 MSK)
+Description=Weekly off-peak upgrade: stage + apply (Friday 22:00 MSK)
 
 [Timer]
 OnCalendar=Fri *-*-* 22:00:00 Europe/Moscow

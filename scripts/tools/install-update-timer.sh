@@ -41,7 +41,16 @@ done
 install_timer() {
     say "staging the update tools in $DEST"
     run install -Dm755 "$SELF_DIR/update-engine.sh" "$DEST/update-engine.sh"
+    run install -Dm755 "$SELF_DIR/update-now.sh"    "$DEST/update-now.sh"
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
+
+    say "configuration (AUTO_APPLY=1: stage + apply in one run)"
+    if [ -e /etc/garuda-restore/update.conf ] && [ "$DRY_RUN" -eq 0 ]; then
+        info "keeping existing /etc/garuda-restore/update.conf"
+    else
+        run mkdir -p /etc/garuda-restore
+        run sh -c 'printf "%s\n" "# AUTO_APPLY=1 -> staging also installs and reboots." "# AUTO_APPLY=0 -> staging only; apply later with update-now.sh." AUTO_APPLY=1 > /etc/garuda-restore/update.conf'
+    fi
 
     say "installing the units"
     run install -m644 "$SELF_DIR/../systemd/update-prepare.service" "$UNITD/update-prepare.service"
