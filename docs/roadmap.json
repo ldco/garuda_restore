@@ -181,6 +181,19 @@
           "path": "bootstrap.sh"
         }
       ]
+    },
+    {
+      "id": "update-staging-timer",
+      "title": "Weekly off-peak staging timer (Friday 22:00 MSK, download only)",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "systemd/update-prepare.timer + .service: OnCalendar=Fri *-*-* 22:00:00 Europe/Moscow, Persistent=true (runs at next boot if missed), AccuracySec=1min, ConditionACPower=true, nice 10 + best-effort IO. prepare-run.sh diffs the Arch news RSS, runs update-engine.sh prepare (mirrors, -Syy, snapshot, download) and writes /var/lib/garuda-restore/prepare.status. Never installs or reboots - applying stays a TTY action via update-now.sh. install-update-timer.sh installs scripts to /usr/local/lib/garuda-restore (not the external drive) and the units; --dry-run/--uninstall.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "systemd/update-prepare.timer"
+        }
+      ]
     }
   ],
   "status_model": 2
