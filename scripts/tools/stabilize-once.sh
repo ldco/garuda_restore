@@ -141,15 +141,23 @@ else
     fi
     if ! systemctl is-enabled grub-btrfsd.service >/dev/null 2>&1; then
         note "    enabling grub-btrfsd (fresh snapshots appear in the GRUB menu)"
-        run systemctl --no-ask-password enable --now grub-btrfsd.service || true
+        run systemctl --no-ask-password enable grub-btrfsd.service || true
     fi
     if [ "$DRY_RUN" -eq 0 ]; then
+        # Always try a start: the unit may be enabled from an earlier attempt
+        # that failed before inotify-tools was installed.
+        if ! systemctl is-active --quiet grub-btrfsd.service; then
+            run systemctl --no-ask-password restart grub-btrfsd.service || true
+            sleep 2
+        fi
         if systemctl is-active --quiet grub-btrfsd.service; then
-            note "    grub-btrfsd                  active"
+            note "    grub-btrfsd                  active (snapshots reach the GRUB menu)"
         else
-            note "    grub-btrfsd could not start - disabling it instead of leaving it failed"
-            run systemctl --no-ask-password disable --now grub-btrfsd.service || true
-            step_failed "grub-btrfsd.service"
+            # Optional plumbing: a warning, never a failed run.
+            note "    grub-btrfsd could not start - disabling it and clearing the failed state"
+            systemctl --no-ask-password disable grub-btrfsd.service >/dev/null 2>&1 || true
+            systemctl reset-failed grub-btrfsd.service >/dev/null 2>&1 || true
+            warn "grub-btrfsd inactive; snapshots still reach the menu at the next grub-mkconfig"
         fi
     fi
 fi
@@ -233,7 +241,7 @@ note "    thermal cap unit    : $(systemctl is-active asus-thermal-cap.service 2
 note "    battery limit unit  : $(systemctl is-active battery-charge-limit.service 2>&1 || true)"
 note "    linux-lts installed : $(pacman -Q linux-lts 2>/dev/null || echo 'no')"
 note "    snapshot cleanup    : $(systemctl is-active snapper-cleanup.timer 2>&1 || true) (snapper-cleanup.timer)"
-note "    grub-btrfsd         : $(systemctl is-active grub-btrfsd.service 2>&1 || true)"
+note "    grub-btrfsd         : $(systemctl is-active grub-btrfsd.service 2>&1 || true) / $(systemctl is-enabled grub-btrfsd.service 2>&1 || true)"
 note "    snapshot entries    : $(grep -c 'menuentry' /boot/grub/grub-btrfs.cfg 2>/dev/null || echo n/a) in the GRUB menu"
 
 if [ "$DRY_RUN" -eq 0 ]; then

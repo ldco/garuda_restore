@@ -195,7 +195,7 @@ check "stabilize-once --dry-run works without root" '[ "$rc" -eq 0 ]'
 check "it covers the weekly timer stack" 'grep -q "update-prepare.timer" <<<"$out"'
 check "it covers the paru release-age knob" 'grep -q "MinimumReleaseAge = 3d" <<<"$out"'
 check "it covers the maintenance run" 'grep -q "update-maintenance" <<<"$out"'
-check "it covers stale cache leftovers" 'grep -q "download-" <<<"$out"'
+check "it covers stale cache leftovers" 'grep -q "4/5 cache leftovers" <<<"$out"'
 check "it prints what stays manual" 'grep -q "paru -Sua" <<<"$out"'
 
 out="$("$REPO/scripts/tools/install-update-timer.sh" --dry-run 2>&1)"
