@@ -1,0 +1,17 @@
+[Unit]
+Description=Post-update maintenance (cache, journal, trim, health)
+Documentation=file:///usr/local/lib/garuda-restore/maintenance-run.sh
+After=multi-user.target network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/garuda-restore/post-update.pending
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/garuda-restore/maintenance-run.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=1h
+
+[Install]
+WantedBy=multi-user.target

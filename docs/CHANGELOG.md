@@ -52,6 +52,7 @@ rm ~/.config/pacman/makepkg.conf
 | Repo | FedoraKDE move commit message corrected | — |
 | Docs | `ARCHITECTURE-PROTOCOL.md` adopted and corrected (OOMScoreAdjust/MemoryHigh claims disproved; display topology; LTS state) | `git revert <commit>` |
 | Profile | `bootstrap.sh` — portable Layer 1 (OOM containment, CPU quota, update tooling, LTS) + Layer 2 hardware adaptation (ASUS only), with `detect`/`status`/`uninstall` and `--dry-run` | `./bootstrap.sh uninstall` |
+| Maintenance | After an applied update the next boot runs `update-maintenance.service`: prunes the cache (keeps 2 versions), vacuums the journal, `fstrim -av`, lists orphans, writes a `garuda-health` report. AUR stays manual | `sudo systemctl disable --now update-maintenance.service` |
 | Updates | Semi-automatic Friday upgrade with recurring reminders: `update-prepare.timer` fires 21:55 Europe/Moscow, notifies the session, stages at 22:00 (snapshot + download), then shows a kdialog yes/no; only "Install now" hands over to `update-now.sh` (GUI stops, installs on tty1, reboots). `MODE=auto` applies without asking, `MODE=stage` stages only; after a decline or timeout `update-prompt.timer` re-asks in 1 h, then every 3 h until installed or the next Friday; `WARN_BEFORE`/`PROMPT_TIMEOUT`/`REMIND_FIRST`/`REMIND_EVERY` configurable | `sudo ./scripts/tools/install-update-timer.sh --uninstall` |
 
 ---

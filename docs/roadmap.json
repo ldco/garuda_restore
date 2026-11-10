@@ -194,6 +194,19 @@
           "path": "systemd/update-prepare.timer"
         }
       ]
+    },
+    {
+      "id": "post-update-maintenance",
+      "title": "Post-update maintenance on the first boot after an applied upgrade",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "update-now.sh writes /var/lib/garuda-restore/post-update.pending before rebooting on success; update-maintenance.service (ConditionPathExists, After=multi-user) runs maintenance-run.sh: paccache -rk2 -ruk0 only when nothing is pending, journal vacuum to 500M, fstrim -av (no discard= mount option here), orphan list (REMOVE_ORPHANS=0 by default), garuda-health --json report, AUR left manual. Config in /etc/garuda-restore/update.conf; --dry-run and state/log overrides for testing.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "scripts/tools/maintenance-run.sh"
+        }
+      ]
     }
   ],
   "status_model": 2

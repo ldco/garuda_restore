@@ -67,7 +67,10 @@ sleep 10
 rc=$?
 
 if [ "$rc" -eq 0 ]; then
-    echo "=== SUCCESS - rebooting into the new kernel in 10 seconds ==="
+    mkdir -p /var/lib/garuda-restore
+    date -Is > /var/lib/garuda-restore/post-update.pending
+    echo "=== SUCCESS - post-update maintenance scheduled for the next boot ==="
+    echo "=== rebooting into the new kernel in 10 seconds ==="
     sleep 10
     systemctl reboot
 else

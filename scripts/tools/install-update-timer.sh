@@ -44,6 +44,7 @@ install_timer() {
     run install -Dm755 "$SELF_DIR/update-now.sh"    "$DEST/update-now.sh"
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
     run install -Dm755 "$SELF_DIR/prompt-run.sh"    "$DEST/prompt-run.sh"
+    run install -Dm755 "$SELF_DIR/maintenance-run.sh" "$DEST/maintenance-run.sh"
 
     say "configuration (MODE=semi: warn, stage, ask)"
     if [ -e /etc/garuda-restore/update.conf ] && [ "$DRY_RUN" -eq 0 ]; then
@@ -51,7 +52,7 @@ install_timer() {
     else
         run mkdir -p /etc/garuda-restore
         run sh -c 'printf "%s
-" "# MODE: semi  = warn, stage, then ask (GUI yes/no) before applying" "#       auto  = warn, stage, apply and reboot without asking" "#       stage = warn, stage only" "MODE=semi" "" "# Seconds between the 21:55 warning and the start of staging." "WARN_BEFORE=300" "" "# Seconds the GUI prompt waits before treating silence as Later." "PROMPT_TIMEOUT=600" "" "# Reminder cadence after a decline/timeout: first in 1 h, then every 3 h," "# until INSTALL or until the next Friday run." "REMIND_FIRST=3600" "REMIND_EVERY=10800" > /etc/garuda-restore/update.conf'
+" "# MODE: semi  = warn, stage, then ask (GUI yes/no) before applying" "#       auto  = warn, stage, apply and reboot without asking" "#       stage = warn, stage only" "MODE=semi" "" "# Seconds between the 21:55 warning and the start of staging." "WARN_BEFORE=300" "" "# Seconds the GUI prompt waits before treating silence as Later." "PROMPT_TIMEOUT=600" "" "# Reminder cadence after a decline/timeout: first in 1 h, then every 3 h," "# until INSTALL or until the next Friday run." "REMIND_FIRST=3600" "REMIND_EVERY=10800" "" "# Post-update maintenance (first boot after an applied update)." "# cache keeps KEEP_PACKAGES versions; orphans are listed, not removed." "MAINTENANCE=1" "KEEP_PACKAGES=2" "JOURNAL_MAX=500M" "FSTRIM=1" "REMOVE_ORPHANS=0" "HEALTH_FIX=0" > /etc/garuda-restore/update.conf'
     fi
 
     say "installing the units"
@@ -59,11 +60,13 @@ install_timer() {
     run install -m644 "$SELF_DIR/../systemd/update-prepare.timer"   "$UNITD/update-prepare.timer"
     run install -m644 "$SELF_DIR/../systemd/update-prompt.service"  "$UNITD/update-prompt.service"
     run install -m644 "$SELF_DIR/../systemd/update-prompt.timer"    "$UNITD/update-prompt.timer"
+    run install -m644 "$SELF_DIR/../systemd/update-maintenance.service" "$UNITD/update-maintenance.service"
 
     say "enabling the weekly timer"
     run systemctl daemon-reload
     run systemctl enable --now update-prepare.timer
     run systemctl enable --now update-prompt.timer
+    run systemctl enable update-maintenance.service
 
     if [ "$DRY_RUN" -eq 0 ]; then
         printf '\n'
@@ -78,10 +81,12 @@ uninstall_timer() {
     say "disabling and removing the units"
     run systemctl disable --now update-prepare.timer update-prompt.timer || true
     run systemctl stop update-prepare.service update-prompt.service || true
+    run systemctl disable update-maintenance.service || true
     run rm -f "$UNITD/update-prepare.timer" "$UNITD/update-prepare.service" \
-               "$UNITD/update-prompt.timer" "$UNITD/update-prompt.service"
+               "$UNITD/update-prompt.timer" "$UNITD/update-prompt.service" \
+               "$UNITD/update-maintenance.service"
     run systemctl daemon-reload
-    run rm -f "$DEST/prepare-run.sh" "$DEST/prompt-run.sh"
+    run rm -f "$DEST/prepare-run.sh" "$DEST/prompt-run.sh" "$DEST/maintenance-run.sh"
     say "removed the units and prepare-run.sh (update-engine.sh kept in $DEST)"
 }
 
