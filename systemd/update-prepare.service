@@ -1,0 +1,15 @@
+[Unit]
+Description=Stage the Garuda upgrade in the background (download only)
+Documentation=file:///usr/local/lib/garuda-restore/prepare-run.sh
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/usr/local/lib/garuda-restore/update-engine.sh
+ConditionACPower=true
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/garuda-restore/prepare-run.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=2h
