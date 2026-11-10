@@ -227,5 +227,13 @@ check "all three update units carry the alarm" \
 check "the alarm script parses" 'bash -n "$REPO/scripts/tools/update-alarm.sh"'
 check "the alarm reports and rate-limits" 'grep -q "alerts.log" "$REPO/scripts/tools/update-alarm.sh" && grep -q "3600" "$REPO/scripts/tools/update-alarm.sh"'
 
+# 16. Login wallpaper sync: --dry-run is root-free, resolves the Plasma
+#     wallpaper from the user's appletsrc, and targets the greeter's own config.
+out="$("$REPO/scripts/tools/sync-login-wallpaper.sh" --dry-run 2>&1)"; rc=$?
+check "login-wallpaper --dry-run works without root" '[ "$rc" -eq 0 ]'
+check "it resolves a real wallpaper file" 'grep -qE "image: /" <<<"$out"'
+check "it targets plasmalogin's wallpaper config" 'grep -q "/etc/plasmalogin.conf" <<<"$out"'
+check "it installs into the greeter's directory" 'grep -q "/var/lib/plasmalogin/wallpapers/desktop.jpg" <<<"$out"'
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

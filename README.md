@@ -70,6 +70,7 @@ garuda-restore/
 │       ├── system-update.sh               # update command (safe front-end)
 │       ├── update-now.sh                  # one-command detached install
 │       ├── stabilize-once.sh              # install the timer stack, prune, verify
+│       ├── sync-login-wallpaper.sh        # greeter wallpaper = desktop wallpaper
 │       └── update-engine.sh               # prepare/install/clean engine
 └── pacman-hooks/
     └── track-installs.hook                # Package tracking

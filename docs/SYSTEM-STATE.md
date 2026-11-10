@@ -5,6 +5,26 @@
 | Item | Value |
 |---|---|
 
+### Login screen wallpaper (2026-11-11)
+
+The greeter is **plasmalogin** (Plasma Login Manager), not SDDM. Its wallpaper is
+not a System Settings option - it lives in its own config:
+
+```
+/etc/plasmalogin.conf
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file:///var/lib/plasmalogin/wallpapers/Malefor.jpg     # Garuda's dragon
+```
+
+`scripts/tools/sync-login-wallpaper.sh` resolves the current Plasma wallpaper
+from `~/.config/plasma-org.kde.plasma.desktop-appletsrc`, converts it to an
+8-bit JPEG capped at 3840x2160, installs it as
+`/var/lib/plasmalogin/wallpapers/desktop.jpg` (a **local** copy: the greeter
+must never depend on the external drive being mounted at boot) and points the
+config at it. `--install-watch` adds `garuda-login-wallpaper.path`, so the login
+screen follows the desktop from then on; `--apply` restarts plasmalogin (ends
+the session - from a TTY).
+
 ### Workstation stabilization: audited third-party advice (2026-11-11)
 
 A generic "convert Garuda into a quiet workstation" recipe was audited against
