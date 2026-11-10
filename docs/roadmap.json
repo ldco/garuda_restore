@@ -3,8 +3,133 @@
     {
       "tag": "v0.1.0",
       "description": "Initial"
+    },
+    {
+      "tag": "v0.2.0",
+      "date": "2026-11-10",
+      "description": "Audit fixes: FedoraKDE move recorded, relocatable harness launcher, thermal-doc correction, battery unit, sleep enforcement documented"
     }
   ],
-  "features": [],
+  "features": [
+    {
+      "id": "oom-containment",
+      "title": "OOM containment: harness.slice + oom-guard + launcher",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "L1 harness.slice 18G/4G with ManagedOOMMemoryPressure=auto, L2 omit on WezTerm/Plasma via 10 s guard, launcher raises oom_score_adj=900 inside the scope. Proven in production: kernel cgroup OOM killed nocowboy inside harness.slice, terminal survived.",
+      "subfeatures": [
+        "docs/OOM-WEZTERM.md",
+        "scripts/tools/harness-run.sh",
+        "scripts/tools/oom-guard.sh",
+        "scripts/tools/oom-forensics.sh"
+      ],
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/OOM-WEZTERM.md"
+        },
+        {
+          "type": "file",
+          "path": "scripts/tools/harness-run.sh"
+        },
+        {
+          "type": "file",
+          "path": "scripts/tools/oom-guard.sh"
+        }
+      ]
+    },
+    {
+      "id": "harness-launcher-relocatable",
+      "title": "Harness launcher independent of the external drive",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "oom-guard.sh now installs harness-run.sh into ~/.local/lib/no-cowboy/ and links ~/.local/bin/harness to that copy; a symlink into the repo died when the external drive was unmounted (reviewer follow-up #2).",
+      "verify": [
+        {
+          "type": "file",
+          "path": "scripts/tools/oom-guard.sh"
+        }
+      ]
+    },
+    {
+      "id": "thermal-topology-correction",
+      "title": "Correct thermal analysis: display topology is the idle-power driver",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "fbdev=1 is a driver default on nvidia-open 615, not a GRUB flag; DP-1 + HDMI-A-1 are on the dGPU so it never idles (35-52 W). Balanced profile is not the quiet profile on this EC (fan blow-up). Doc now carries the measured chain and the card2 (DP-2/DP-3) test.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/system-thermal-lag-analysis.md"
+        }
+      ]
+    },
+    {
+      "id": "battery-limit-unit",
+      "title": "Battery charge limit unit uses asusctl (not BAT1 sysfs)",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "systemd/battery-charge-limit.service wrote to /sys/class/power_supply/BAT1/charge_control_end_threshold, which does not exist on this model. Rewritten to asusctl battery limit 80 via asusd. Not installed by default; enabling it applies the 80% cap.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "systemd/battery-charge-limit.service"
+        }
+      ]
+    },
+    {
+      "id": "sleep-enforcement",
+      "title": "Enforce the sleep decision (mask sleep targets)",
+      "status": "planned",
+      "version": "v0.2.0",
+      "notes": "SLEEP-WAKE-ISSUES.md says sleep is disabled, but the targets are static, not masked. Root step documented in the doc: systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target. Needs a human with sudo.",
+      "depends_on": [],
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/SLEEP-WAKE-ISSUES.md"
+        }
+      ]
+    },
+    {
+      "id": "display-topology-experiment",
+      "title": "Move an external monitor to the iGPU to lower dGPU idle power",
+      "status": "planned",
+      "version": "v0.2.0",
+      "notes": "card2 (Intel) exposes DP-2 and DP-3; DP-1/HDMI-A-1 are on card1 (NVIDIA). Measure nvidia-smi power.draw and fan*_input before/after moving a cable (or lowering refresh to 60). Target: dGPU under 20 W idle.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/system-thermal-lag-analysis.md"
+        }
+      ]
+    },
+    {
+      "id": "docs-current-state",
+      "title": "SYSTEM-STATE.md and roadmap.json reflect 2026-11-10",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "The state doc was frozen at 2024-12-30 (kernel 6.18.2-zen2); a verified current-state section now precedes the historical record, and the roadmap is no longer empty.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/SYSTEM-STATE.md"
+        }
+      ]
+    },
+    {
+      "id": "fedora-kit-relocation",
+      "title": "Record the FedoraKDE kit move out of the repo",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "The kit lives at LinuxDCO/misc_os/FedoraKDE next to the NixOS kit (38 files, identical content plus assets/). The misleading 'refresh' commit was rewritten to describe the move.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/roadmap.json"
+        }
+      ]
+    }
+  ],
   "status_model": 2
 }

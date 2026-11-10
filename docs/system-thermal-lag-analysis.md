@@ -1,14 +1,20 @@
 # System Analysis: Thermal Instability & Performance Degradation
 
-**Date:** 2026-06-13
+**Date:** 2026-06-13 (corrected 2026-11-10 against live measurements)
 **System:** ASUS TUF Gaming F15 (FX507ZR) — Garuda Linux KDE Plasma 6 (Wayland)
-**Confidence Level:** 🟢 High — analysis based on frozen system state documentation, existing diagnostic scripts, and documented failure histories.
+**Confidence Level:** 🟢 High for the live measurement below; the 2026-06-13 analysis is kept for history and superseded where they disagree.
+
+> **Corrections of 2026-11-10 (measured, not inferred).**
+> 1. `nvidia_drm.fbdev=1` is **not a GRUB flag on this system** — the cmdline has no such parameter, and `fbdev`/`modeset` are `Y` because nvidia-open 615 defaults them. Deleting a GRUB argument changes nothing. The 2026-06-13 causal chain below is therefore historical.
+> 2. The real idle-power driver is the **display topology**: `card1` (NVIDIA) owns `DP-1` and `HDMI-A-1`, `card2` (Intel) owns `eDP-2`. KWin composites the two external monitors on the dGPU, so it never reaches D3. Measured: `P0/P3`, **35–52 W**, 13–34 % util, 62–63 °C, CPU package 82–88 °C, EC fans **4000–6300 rpm**.
+> 3. The fan speed follows GPU/CPU power, **not the profile label** — the same `Performance` profile measured 4000/4200 rpm and 6000/6300 rpm minutes apart.
+> 4. `asusctl profile set Balanced` is **not** the quiet profile on this EC: it drove the fans to near-maximum RPM (a thermal scare, hours of recovery). Keep `Performance` on AC and `Quiet` on battery.
 
 ---
 
 ## Executive Summary
 
-The system exhibits two classes of problems: **thermal instability** (GPU stuck at 40W idle, CPU temps reaching 96°C causing thermal shutdown) and **perceived lag/stutter** (KWin CPU at 50-80%, cursor lag, compositing stutter). These are NOT hardware defects — the i7-12700H + RTX 3070 + 32GB DDR5 should deliver a premium experience. The root causes are configuration misalignments in the compositor, GPU driver parameters, and power management stack, all of which have been previously documented but may have regressed.
+**2026-06-13 assessment — superseded by the corrections above.** The system exhibits two classes of problems: **thermal instability** (GPU stuck at 40W idle, CPU temps reaching 96°C causing thermal shutdown) and **perceived lag/stutter** (KWin CPU at 50-80%, cursor lag, compositing stutter). These are NOT hardware defects — the i7-12700H + RTX 3070 + 32GB DDR5 should deliver a premium experience. The root causes are configuration misalignments in the compositor, GPU driver parameters, and power management stack, all of which have been previously documented but may have regressed.
 
 **Impact by user symptom:**
 
@@ -103,6 +109,8 @@ The system uses a hybrid Intel-NVIDIA GPU configuration. The NVIDIA driver histo
 
 **`nvidia_drm.fbdev=1` shall NEVER be auto-applied.** It requires explicit user opt-in via `--force-fbdev` flag with a thermal safety warning. The framebuffer errors are harmless log noise — not actual display corruption.
 
+**Update 2026-11-10:** the decision is moot in form — on nvidia-open 615 both `modeset` and `fbdev` default to `Y` and no GRUB flag exists. The 40 W floor measured here is caused by `DP-1` + `HDMI-A-1` being wired to the dGPU, not by this module parameter. Do not spend time on the GRUB argument; spend it on the connector.
+
 ### Options Considered
 
 | Option | Thermal | Framebuffer | UX | Verdict |
@@ -153,27 +161,25 @@ With 3 monitors at 1440p 165Hz, KWin compositing is GPU-bound. Certain effects c
 
 ### Causal Chain
 
+**Measured chain (2026-11-10):**
+
 ```
-nvidia_drm.fbdev=1 (IN GRUB)
+Two external displays (DP-1 + HDMI-A-1) wired to the dGPU (card1, NVIDIA)
        │
        ▼
-GPU framebuffer kept active
+KWin composites them on the dGPU; it never reaches D3
        │
        ▼
-GPU cannot enter D3 sleep state
+Idle power floor: 35–52 W at P0/P3, 13–34 % util
        │
        ▼
-Power draw floor raised: 5W → 40W (8× increase)
+GPU 62–63 °C + CPU package 82–88 °C at the desktop
        │
        ▼
-VRM/GPU area heats chassis → CPU thermal soak
-       │
-       ▼
-CPU temps spike to 96°C
-       │
-       ▼
-Thermal protection: emergency shutdown
+EC ramps fans to 4000–6300 rpm (follows load, not the profile label)
 ```
+
+**Historical chain (2026-06-13, superseded):** it blamed `nvidia_drm.fbdev=1` set in GRUB for the 40 W floor. That premise no longer holds: the parameter is absent from the cmdline, the driver defaults it to `Y`, and the measured floor is explained by the display topology above.
 
 ### Detection Commands
 
@@ -230,8 +236,8 @@ grep "blurEnabled\|forceblurEnabled" ~/.config/kwinrc
 # Check if NO_AMS is set
 grep "KWIN_DRM_NO_AMS" /etc/environment ~/.config/environment.d/*
 
-# Check power profile (Quiet = throttled)
-asusctl profile -p 2>/dev/null | grep "Active"
+# Check power profile (Performance on AC; Quiet throttles and feels slow)
+asusctl profile get 2>/dev/null | grep "Active"
 ```
 
 ### Secondary Lag Factors
@@ -367,7 +373,8 @@ Run these checks in order to identify what's currently wrong:
 
 | Check | Command | Expected | If Wrong |
 |-------|---------|----------|----------|
-| fbdev=1 in GRUB | `grep fbdev /etc/default/grub` | NOT present | Remove immediately + `update-grub` + reboot |
+| `nvidia_drm` params | `cat /sys/module/nvidia_drm/parameters/{modeset,fbdev}` | `Y` / `Y` (driver default) | Not a GRUB flag; do not chase it. See the display-topology row |
+| Displays on the dGPU | `for c in /sys/class/drm/card*-*/status; do …; done` | NVIDIA owns only what it must | External monitors on `card1` keep the dGPU awake — this is the real idle-power floor |
 | GPU idle power | `nvidia-smi --query-gpu=power.draw,pstate --format=csv` | P5-P8, <20W | Check for GPU-using processes, fbdev=1 |
 | CPU temp idle | `sensors \| grep Package` | <60°C | Check power profile, fans, dust |
 
@@ -377,7 +384,7 @@ Run these checks in order to identify what's currently wrong:
 |-------|---------|----------|----------|
 | KWin blur | `grep blurEnabled ~/.config/kwinrc` | `false` | Run `apply-optimizations.sh --category KWin` |
 | KWin NO_AMS | `grep NO_AMS /etc/environment ~/.config/environment.d/*` | NOT present | Remove line and reboot |
-| Power profile | `asusctl profile -p` | Balanced | `asusctl profile -P Balanced` |
+| Power profile | `asusctl profile get` | `Performance` (AC) / `Quiet` (battery) | Do **not** set `Balanced` — measured fan blow-up. See the correction block |
 | CPU governor | `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor` | powersave | DO NOT CHANGE (intel_pstate dynamic) |
 | EPP | `cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference` | balance_power | Switch to Balanced profile |
 
@@ -439,16 +446,21 @@ grep "nvidia_drm.fbdev=1" /etc/default/grub && echo "⚠ DANGER: fbdev=1 found! 
 ### Phase 1: Fix Critical Thermal Issues
 
 ```bash
-# 1. Verify and remove fbdev=1 if present
-sudo sed -i 's/ nvidia_drm.fbdev=1//' /etc/default/grub
-sudo update-grub
+# 1. Confirm the DRM parameters are driver defaults, not stale GRUB flags
+cat /sys/module/nvidia_drm/parameters/modeset /sys/module/nvidia_drm/parameters/fbdev
+grep -n nvidia_drm /etc/default/grub || echo "no nvidia_drm flags in GRUB (correct)"
 
-# 2. Set power profile to Balanced
-asusctl profile -P Balanced
+# 2. Read the display topology: which GPU owns which output
+for s in /sys/class/drm/card*-*/status; do
+    printf '%s = %s\n' "$(dirname "$s" | xargs basename)" "$(cat "$s")"
+done
 
-# 3. Reboot
-sudo reboot
+# 3. Measure before any change
+nvidia-smi --query-gpu=power.draw,utilization.gpu,pstate,temperature.gpu --format=csv,noheader
+grep -H . /sys/class/hwmon/hwmon*/fan*_input
 ```
+
+**The lever is the display topology, not the profile.** On this machine `card2` (Intel) exposes `DP-2` and `DP-3` (USB-C DP alt-mode) while `DP-1`/`HDMI-A-1` are on the NVIDIA dGPU. Moving one external monitor to a `card2` connector should let the dGPU idle; lower its refresh rate (144→60) is the no-cable fallback. Keep `Performance` on AC — never `Balanced`.
 
 ### Phase 2: Fix Performance Issues
 
@@ -497,13 +509,13 @@ sudo ./scripts/tools/rollback-optimizations.sh
 
 | Metric | Current (Likely) | Target |
 |--------|-----------------|--------|
-| GPU idle power | 40W (if fbdev=1) or 20W | **5-15W** |
+| GPU idle power | **35–52W** measured with externals on the dGPU | **<20W** if the externals are moved to the iGPU / lower refresh |
 | CPU idle temp | 70-96°C | **40-60°C** |
 | KWin CPU | 50-80% | **15-25%** |
 | Desktop feel | Stutter/lag | **Butter-smooth at 165Hz** |
 | Blur effects | Enabled (CPU hog) | **Disabled, no visible difference** |
 | Sleep/wake | Broken/crash | **Works within 3 seconds** |
-| Fan noise | Constant 2500+ RPM | **0 RPM idle, ramp only under load** |
+| Fan noise | **4000–6300 RPM** at the desktop | 0 RPM idle **only** when the dGPU drives no display; otherwise the EC floor is expected |
 
 ---
 

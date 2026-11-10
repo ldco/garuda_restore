@@ -156,6 +156,11 @@ it is on this machine):
 ./scripts/tools/oom-guard.sh --uninstall   # full rollback
 ```
 
+The installer copies the launcher to `~/.local/lib/no-cowboy/harness-run.sh` and
+links `~/.local/bin/harness` to that copy — never into the repo, which lives on
+an external drive. Re-run `./scripts/tools/oom-guard.sh` after editing the
+launcher to refresh the copy.
+
 Launch heavy work through the launcher:
 
 ```bash

@@ -213,7 +213,7 @@ show_gui_progress() {
             qdbus $dbus_ref 2>/dev/null | grep -q "org.kde.kdialog" && return 0
         fi
         return 1
-    fi
+    }
 
     # DON'T create dialog yet - wait for first rsync output (after password is entered)
 

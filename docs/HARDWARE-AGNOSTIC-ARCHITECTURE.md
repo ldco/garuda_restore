@@ -178,14 +178,15 @@ configure_grub_gpu() {
 if [ "$HAS_ASUSCTL" = true ]; then
     echo "ASUS laptop detected - configuring power profiles"
     
-    # Set balanced as default (safe for all laptops)
-    asusctl profile -P Balanced
+    # Set Performance on AC. Known-good on the TUF FX507ZR: `Balanced` drove the
+    # EC fans to near-max (measured 2026-11-10). asusctl 6.x syntax.
+    asusctl profile set Performance
     
     # Set AC/battery profiles (optional, user choice)
     read -p "Set aggressive charging profiles? [y/N]: " -n 1 -r
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        asusctl profile -a Balanced
-        asusctl profile -b Quiet
+        asusctl profile set -a Performance   # Balanced is unsafe on the FX507ZR
+        asusctl profile set -b Quiet
     fi
 else
     echo "ASUS tools not detected - skipping asusctl configuration"

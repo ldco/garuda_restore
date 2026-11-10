@@ -348,12 +348,14 @@ if [[ "$CATEGORY" == "all" || "$CATEGORY" == "power" || "$CATEGORY" == "Power" ]
     if [ "$HAS_ASUSCTL" = "true" ]; then
         echo "   Configuring ASUS power profiles..."
         if command -v asusctl &>/dev/null; then
-            run_or_show "asusctl profile -P Balanced"
-            log_applied "ASUS profile set to Balanced"
+            # Balanced is NOT applied: on this EC it drove the fans to near-max
+            # (measured 2026-11-10). Performance on AC is the known-good state.
+            run_or_show "asusctl profile set Performance"
+            log_applied "ASUS profile set to Performance"
             
-            run_or_show "asusctl profile -a Balanced"
-            run_or_show "asusctl profile -b Quiet"
-            log_applied "AC=Balanced, Battery=Quiet defaults"
+            run_or_show "asusctl profile set -a Performance"
+            run_or_show "asusctl profile set -b Quiet"
+            log_applied "AC=Performance, Battery=Quiet defaults"
         else
             log_skipped "asusctl command not found"
         fi

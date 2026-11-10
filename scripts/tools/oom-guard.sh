@@ -177,12 +177,17 @@ ManagedOOMPreference=omit"
 
     if $DRY_RUN; then
         say "[dry-run] chmod 755 $GUARD_RUN"
-        say "[dry-run] ln -sfn $LAUNCHER $LOCAL_BIN_DIR/harness"
+        say "[dry-run] install $LAUNCHER -> $GUARD_LIB_DIR/harness-run.sh"
+        say "[dry-run] ln -sfn $GUARD_LIB_DIR/harness-run.sh $LOCAL_BIN_DIR/harness"
     else
         chmod 755 "$GUARD_RUN"
-        mkdir -p "$LOCAL_BIN_DIR"
-        ln -sfn "$LAUNCHER" "$LOCAL_BIN_DIR/harness"
-        say "linked: $LOCAL_BIN_DIR/harness -> $LAUNCHER"
+        # The launcher must not live on a removable/external volume: the repo is
+        # on an external drive, and a symlink into it silently dies on unmount.
+        mkdir -p "$GUARD_LIB_DIR" "$LOCAL_BIN_DIR"
+        install -m 755 "$LAUNCHER" "$GUARD_LIB_DIR/harness-run.sh"
+        ln -sfn "$GUARD_LIB_DIR/harness-run.sh" "$LOCAL_BIN_DIR/harness"
+        say "installed: $GUARD_LIB_DIR/harness-run.sh"
+        say "linked:    $LOCAL_BIN_DIR/harness -> $GUARD_LIB_DIR/harness-run.sh"
     fi
 
     run_cmd systemctl --user daemon-reload || true
@@ -221,6 +226,7 @@ uninstall_all() {
         remove_path "$SYSTEMD_USER_DIR/${unit}.d/zz-oom.conf"
     done
     remove_path "$LOCAL_BIN_DIR/harness"
+    remove_path "$GUARD_LIB_DIR/harness-run.sh"
 
     run_cmd systemctl --user daemon-reload || true
 

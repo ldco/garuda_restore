@@ -92,11 +92,11 @@ echo "EPP: $EPP"
 
 # Power profile
 if command -v asusctl &>/dev/null; then
-    PROFILE=$(asusctl profile -p 2>/dev/null | grep "Active" | awk '{print $NF}')
+    PROFILE=$(asusctl profile get 2>/dev/null | grep "Active" | awk '{print $NF}')
     if [ "$PROFILE" = "Quiet" ]; then
         echo -e "Profile: ${YELLOW}$PROFILE (may feel slow)${NC}"
         ISSUES+=("Power profile is Quiet - system may feel slow")
-        FIXES+=("asusctl profile -P Balanced")
+        FIXES+=("asusctl profile set Performance")
     else
         echo -e "Profile: ${GREEN}$PROFILE${NC}"
     fi

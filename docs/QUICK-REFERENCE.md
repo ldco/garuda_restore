@@ -10,11 +10,11 @@ check --deep    # Deep analysis (18 areas)
 # System Update & Maintenance
 update          # Update, clean, optimize system
 
-# Power Profiles
-asusctl profile -p                    # Check current
-asusctl profile -P Balanced           # Daily work
-asusctl profile -P Performance        # Gaming/compiling
-asusctl profile -P Quiet              # Silent/battery
+# Power Profiles (asusctl 6.x — `-p`/`-P` are gone)
+asusctl profile get                   # Check current
+asusctl profile list                  # Available profiles
+asusctl profile set Performance       # KEEP on AC — Balanced blew the fans (FX507ZR)
+asusctl profile set Quiet             # Battery / silent
 
 # System Status
 nvidia-smi                            # GPU state
@@ -58,7 +58,7 @@ See `docs/SYSTEM-STATE.md` "Duplicate Titlebars Fix" for full guide.
 
 ### Mouse Lag / System Slow
 ```bash
-asusctl profile -P Balanced
+asusctl profile set Performance   # do NOT use Balanced on the FX507ZR
 ```
 
 ### KWin High CPU

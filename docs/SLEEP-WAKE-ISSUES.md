@@ -19,6 +19,25 @@ Root cause: upstream KWin Wayland bug on hybrid GPU systems. See [Is It Bad to N
 
 **Arch Wiki confirms:** "Manufacturers have stopped fixing bugs with the ACPI S3 state since systems shipping with Windows are encouraged to use Modern standby by default; if they have voluntarily not advertised it, it is probably broken in some way." On hybrid-graphics laptops (Intel + NVIDIA), both S3 and s2idle are unreliable until upstream KDE/NVIDIA fixes land. No timeline available.
 
+### Enforcement status (2026-11-10): NOT applied
+
+The decision above is prose only. On the live system `sleep.target`, `suspend.target`, `hibernate.target` and `hybrid-sleep.target` are `static` (not masked), `/sys/power/mem_sleep` is `[s2idle] deep`, and logind has no lid override. A stray `systemctl suspend`, a menu item or a lid event can still trigger the hard-freeze.
+
+To make the decision real (root; this is the missing step):
+
+```bash
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+systemctl status sleep.target --no-pager   # expect "masked"
+```
+
+Undo:
+
+```bash
+sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
+
+Masking does not suppress the lid event; logind logs a failed suspend attempt and carries on, which is the wanted behaviour on this desk-bound, lid-open machine.
+
 ### Primary Entrypoint: fix-sleep.sh
 
 **Use this script** for interactive diagnosis and automatic routing:

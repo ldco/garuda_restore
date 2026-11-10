@@ -1,13 +1,22 @@
 [Unit]
-Description=Set battery charge limit to 80% and keyboard RGB
-After=multi-user.target
-After=asusd.service
+Description=Set ASUS battery charge limit to 80% (TUF Gaming FX507ZR)
+# asusd is the only working path on this model: there is no writable
+# /sys/class/power_supply/BAT*/charge_control_end_threshold here.
+After=multi-user.target asusd.service
+Requires=asusd.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'echo 80 > /sys/class/power_supply/BAT1/charge_control_end_threshold'
-ExecStart=/usr/bin/asusctl aura effect static -cffffff
+ExecStart=/usr/bin/asusctl battery limit 80
+# Cosmetic: static white keyboard LED (asusctl 6.5 syntax). "-" = ignore failure.
+ExecStart=-/usr/bin/asusctl aura effect static -c ffffff
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
+
+# Install (root, NOT applied by default — this changes charging behaviour):
+#   sudo install -m644 systemd/battery-charge-limit.service /etc/systemd/system/
+#   sudo systemctl enable --now battery-charge-limit.service
+# Verify: asusctl battery info   -> "Current battery charge limit: 80%"
+# Disable: systemctl disable --now battery-charge-limit.service && asusctl battery limit 100

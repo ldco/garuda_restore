@@ -159,11 +159,12 @@ if [[ "$CATEGORY" == "all" || "$CATEGORY" == "power" || "$CATEGORY" == "Power" ]
     echo -e "${BOLD}[Power] Power Management Rollback${NC}"
     echo "─────────────────────────────────────────────────────────────"
 
-    # Reset ASUS profile to default (let power-profiles-daemon handle it)
+    # Reset ASUS profile to the known-good state (Balanced is unsafe on the
+    # TUF FX507ZR: it drove the EC fans to near-max, measured 2026-11-10).
     if command -v asusctl &>/dev/null; then
-        echo "   Resetting ASUS profile to default..."
-        run_or_show "asusctl profile -P Balanced 2>/dev/null || true"
-        log_rolled "ASUS profile reset to Balanced"
+        echo "   Resetting ASUS profile to Performance..."
+        run_or_show "asusctl profile set Performance 2>/dev/null || true"
+        log_rolled "ASUS profile set to Performance"
     else
         log_skipped "asusctl not available"
     fi

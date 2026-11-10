@@ -413,7 +413,7 @@ echo balance_performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/energy_
 
 **Rollback:**
 ```bash
-asusctl profile -P Balanced
+asusctl profile set Performance   # Balanced is unsafe on the FX507ZR (fan blow-up)
 ```
 
 ---

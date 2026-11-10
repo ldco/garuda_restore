@@ -1,4 +1,24 @@
-# System State Documentation - FROZEN 2024-12-30
+# System State Documentation
+
+## Current state — 2026-11-10 (verified live)
+
+| Item | Value |
+|---|---|
+| Kernel | `7.2.11-zen1-1-zen` (linux-lts not installed; fallback plan in the stabilization guide) |
+| GPU driver | `nvidia-open-dkms 615.78.08` + `nvidia-utils`/`lib32-nvidia-utils` 615.78.08 |
+| Desktop | KDE Plasma 6.8.1 / KWin 6.8.1, Wayland |
+| Displays | `eDP-2` 2560x1440@165 scale 1.5 on **card2 (Intel)**; `DP-1` + `HDMI-A-1` on **card1 (NVIDIA)**, HDMI at 2560x1440@144 |
+| Memory | 30.9 GiB RAM; swap 62.9 GiB = 32 GiB `/swap/swapfile` (prio -1) + 31 GiB zram (prio 100) |
+| OOM | `systemd-oomd` active; `harness.slice` 18 GiB / 4 GiB / `ManagedOOMMemoryPressure=auto`; `oom-guard.timer` every 10 s; `omit` on WezTerm + plasma units; launcher `~/.local/lib/no-cowboy/harness-run.sh` |
+| Thermals | GPU 35–52 W, P0/P3, 62–63 °C; CPU package 82–88 °C; fans 4000–6300 rpm (dGPU drives the externals) |
+| ASUS | profile `Performance` (AC) / `Quiet` (battery); battery limit 100 %; `supergfxd` disabled; custom fan curves disabled |
+| Boot | GRUB 2.16, `/boot` = btrfs subvol inside LUKS root; initramfs by dracut 111 (mkinitcpio absent) |
+| Sleep | targets not masked — see `SLEEP-WAKE-ISSUES.md` for the enforcement step |
+| Repo | `master` at the FedoraKDE-move commit + this audit's fixes |
+
+---
+
+# Historical record — FROZEN 2024-12-30
 
 ## Hardware Profile
 
@@ -403,16 +423,15 @@ asusctl fan-curve -m Balanced
 
 ```bash
 # Check current profile
-asusctl profile -p
+asusctl profile get
 
-# Switch profiles
-asusctl profile -P Balanced    # Daily use
-asusctl profile -P Performance # Heavy workloads
-asusctl profile -P Quiet       # Silent/battery
+# Switch profiles (asusctl 6.x)
+asusctl profile set Performance # KEEP on AC — Balanced blew the fans (FX507ZR)
+asusctl profile set Quiet       # Silent/battery
 
-# Set AC/Battery defaults
-asusctl profile -a Balanced    # AC power profile
-asusctl profile -b Quiet       # Battery profile
+# Set AC/Battery defaults (asusctl 6.x)
+asusctl profile set -a Performance   # AC — Balanced blew the fans on this model
+asusctl profile set -b Quiet         # Battery
 
 # Verify CPU state
 cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
@@ -560,14 +579,14 @@ journalctl -b | grep -i "i2c\|ddc"
 
 **Check:**
 ```bash
-asusctl profile -p
+asusctl profile get
 cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference
 ```
 
 **Fix:**
-1. If profile is "Quiet" or EPP is "power", switch to Balanced:
+1. If profile is "Quiet" or EPP is "power", switch to Performance:
    ```bash
-   asusctl profile -P Balanced
+   asusctl profile set Performance
    ```
 
 ### Problem: Internal display not working
