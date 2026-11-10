@@ -10,6 +10,29 @@
 > 3. The fan speed follows GPU/CPU power, **not the profile label** — the same `Performance` profile measured 4000/4200 rpm, 6000/6300 rpm and 4400/4700 rpm at different moments. With the AI harness running (CPU package 86–92 °C) the fans track CPU heat, not the 33 W GPU.
 > 4. `asusctl profile set Balanced` is **not** the quiet profile on this EC: it drove the fans to near-maximum RPM (a thermal scare, hours of recovery). Keep `Performance` on AC and `Quiet` on battery.
 
+### Applied guards (2026-11-10)
+
+`harness.slice` carries a CPU quota (unprivileged, persistent, survives reboot):
+
+```ini
+# ~/.config/systemd/user/harness.slice.d/zz-cpu.conf
+[Slice]
+CPUQuota=400%
+CPUWeight=50
+```
+
+Measured: two harness instances plus parallel `bun test` workers took ~5.4 of 20 threads. The quota caps the whole slice at 4 threads and `CPUWeight=50` lets the desktop preempt. In a 60 s burst the package fell **97 °C → 71 °C** while the test workers paused and climbed back to 97 °C when they resumed — that is, the quota limits parallelism but the hotspot is single-core boost, not thread count.
+
+The hotspot lever needs root and is scripted:
+
+```bash
+./scripts/tools/thermal-guard.sh status            # read-only: temp, fans, PL1/PL2, EPP, throttle counters, quota
+sudo ./scripts/tools/thermal-guard.sh cap --pl1 45 # sustained PL1 45 W, PL2 untouched, boot unit installed
+sudo ./scripts/tools/thermal-guard.sh revert       # remove the boot unit (PL1 returns to firmware default at reboot)
+```
+
+Gate before keeping the cap: throttle ms/min must drop **and** a timed build must not regress more than ~10 %.
+
 ---
 
 ## Executive Summary

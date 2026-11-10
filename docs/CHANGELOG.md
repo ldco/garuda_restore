@@ -46,7 +46,8 @@ rm ~/.config/pacman/makepkg.conf
 | Harness launcher | installed to `~/.local/lib/no-cowboy/harness-run.sh`; `~/.local/bin/harness` links there (no longer into the external drive) | `./scripts/tools/oom-guard.sh --uninstall` |
 | Thermal doc | `fbdev=1` claim corrected (driver default, not a GRUB flag); display topology (DP-1/HDMI-A-1 on the dGPU) documented; `Balanced` profile marked unsafe | `git revert <commit>` |
 | Battery unit | `asusctl battery limit 80` instead of a nonexistent BAT1 sysfs write; not installed by default | — |
-| Sleep | enforcement step (mask sleep targets) documented; not applied | `sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target` |
+| CPU guard | `harness.slice` capped at `CPUQuota=400%` + `CPUWeight=50` (persistent user drop-in); `scripts/tools/thermal-guard.sh` adds the root PL1 cap with a boot unit | `./scripts/tools/thermal-guard.sh quota off` |
+| Sleep | masked (`sleep/suspend/hibernate/hybrid-sleep` → `/dev/null`) | `sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target` |
 | Docs | `SYSTEM-STATE.md` current-state section; `roadmap.json` populated | — |
 | Repo | FedoraKDE move commit message corrected | — |
 

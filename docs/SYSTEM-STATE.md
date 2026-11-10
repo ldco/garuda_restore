@@ -9,7 +9,7 @@
 | Desktop | KDE Plasma 6.8.1 / KWin 6.8.1, Wayland |
 | Displays | `eDP-2` 2560x1440@165 scale 1.5 on **card2 (Intel)**; `DP-1` (**USB-C**) + `HDMI-A-1` both on **card1 (NVIDIA)** at 2560x1440@144 — the iGPU's `DP-2`/`DP-3` are unused |
 | Memory | 30.9 GiB RAM; swap 62.9 GiB = 32 GiB `/swap/swapfile` (prio -1) + 31 GiB zram (prio 100) |
-| OOM | `systemd-oomd` active; `harness.slice` 18 GiB / 4 GiB / `ManagedOOMMemoryPressure=auto`; `oom-guard.timer` every 10 s; `omit` on WezTerm + plasma units; launcher `~/.local/lib/no-cowboy/harness-run.sh` |
+| OOM / CPU | `systemd-oomd` active; `harness.slice` 18 GiB / 4 GiB / `ManagedOOMMemoryPressure=auto`; `CPUQuota=400%` + `CPUWeight=50` (`harness.slice.d/zz-cpu.conf`); `oom-guard.timer` every 10 s; `omit` on WezTerm + plasma units; launcher `~/.local/lib/no-cowboy/harness-run.sh` |
 | Thermals | GPU 35–52 W, P0/P3, 62–63 °C; CPU package 82–88 °C; fans 4000–6300 rpm (dGPU drives the externals) |
 | ASUS | profile `Performance` (AC) / `Quiet` (battery); battery limit 100 %; `supergfxd` disabled; custom fan curves disabled |
 | Boot | GRUB 2.16, `/boot` = btrfs subvol inside LUKS root; initramfs by dracut 111 (mkinitcpio absent) |

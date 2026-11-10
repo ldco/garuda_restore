@@ -129,6 +129,32 @@
           "path": "docs/roadmap.json"
         }
       ]
+    },
+    {
+      "id": "thermal-cpu-quota",
+      "title": "CPU quota on harness.slice (thermal guard)",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "CPUQuota=400% + CPUWeight=50 in ~/.config/systemd/user/harness.slice.d/zz-cpu.conf; persistent, applied live with set-property (no slice restart). Measured 97->71 C when the burst paused; the hotspot itself is single-core boost, so this limits parallelism, not the peak.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "scripts/tools/thermal-guard.sh"
+        }
+      ]
+    },
+    {
+      "id": "thermal-pl1-cap",
+      "title": "Sustained PL1 cap (root) to attack the 97 C hotspot",
+      "status": "planned",
+      "version": "v0.2.0",
+      "notes": "scripts/tools/thermal-guard.sh cap --pl1 45 writes ASUS ppt_pl1_spl (watts, ABI range 5-250; the sysfs read shows the driver default 5, not the live limit) and installs asus-thermal-cap.service. PL2 untouched. Gate: throttle ms/min drops and a timed build regresses <10%. Needs root.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "scripts/tools/thermal-guard.sh"
+        }
+      ]
     }
   ],
   "status_model": 2
