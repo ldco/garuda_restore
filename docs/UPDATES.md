@@ -172,6 +172,27 @@ It closes everything that is still manual once an upgrade has landed:
 the timer units had ever been installed**. That is fixed, and the test suite now
 asserts that every unit source it references exists.
 
+## Running the pieces by hand
+
+```bash
+# Total maintenance and cleanup, at any time (no update needed):
+sudo ./scripts/tools/maintenance-run.sh --now
+#   cache prune (KEEP_PACKAGES versions) + journal vacuum + fstrim +
+#   orphan list + garuda-health report; output on the terminal and in
+#   /var/log/garuda/update-maintenance.log
+
+# The Friday staging job, by hand (downloads only, the desktop stays usable):
+sudo ./scripts/tools/update-engine.sh prepare
+
+# The same staging through the timer's own path, including the GUI prompt:
+sudo systemctl start update-prepare.service
+```
+
+`--now` is what the system runs automatically on the first boot after an
+applied update; it skips the "post-update flag" check so it can be used as a
+routine cleanup. Orphans are listed, not removed (`REMOVE_ORPHANS=0`), because
+some of them are user-facing (KWin effects, themes, language tooling).
+
 ## What install does
 
 1. Refuses if an active Wayland/X11 session exists (`--force` overrides it —

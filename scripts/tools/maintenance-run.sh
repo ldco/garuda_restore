@@ -15,12 +15,22 @@
 #
 # Config: /etc/garuda-restore/update.conf (MAINTENANCE, KEEP_PACKAGES, JOURNAL_MAX,
 #         FSTRIM, REMOVE_ORPHANS, HEALTH_FIX)
-# Usage:  maintenance-run.sh [--dry-run]
+# Usage:  maintenance-run.sh [--dry-run] [--now]
+#         --now  run the total maintenance immediately, without the
+#                post-update flag (manual cleanup; output also on the terminal)
 # =============================================================================
 set -u
 
 DRY_RUN=0
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=1
+NOW=0
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=1 ;;
+        --now)     NOW=1 ;;
+        -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
+    esac
+done
 
 LOG="${NOCOWBOY_LOG:-/var/log/garuda/update-maintenance.log}"
 STATE="${NOCOWBOY_STATE:-/var/lib/garuda-restore}"
@@ -42,12 +52,19 @@ run() {
 if [ "$DRY_RUN" -eq 0 ]; then
     [ "$(id -u)" -eq 0 ] || { echo "maintenance-run: needs root (or --dry-run)" >&2; exit 1; }
     mkdir -p "$STATE" "$(dirname "$LOG")"
-    exec >>"$LOG" 2>&1
+    if [ "$NOW" -eq 1 ]; then
+        exec > >(tee -a "$LOG") 2>&1
+    else
+        exec >>"$LOG" 2>&1
+    fi
 fi
 
-if [ ! -e "$FLAG" ]; then
-    [ "$DRY_RUN" -eq 1 ] && echo "no $FLAG - maintenance is not due"
+if [ ! -e "$FLAG" ] && [ "$NOW" -eq 0 ]; then
+    [ "$DRY_RUN" -eq 1 ] && echo "no $FLAG - maintenance is not due (use --now to force)"
     exit 0
+fi
+if [ "$NOW" -eq 1 ]; then
+    echo "=== $(date -Is) manual maintenance run (no post-update flag needed) ==="
 fi
 
 echo "=== $(date -Is) post-update maintenance (kernel $(uname -r)) ==="
