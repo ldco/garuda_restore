@@ -145,6 +145,33 @@ unit it would start, without stopping anything.
 
 AUR packages are not touched in this mode; run `paru -Sua` after the reboot.
 
+## One command after an update: `stabilize-once.sh`
+
+```bash
+sudo ./scripts/tools/stabilize-once.sh          # idempotent, safe to re-run
+./scripts/tools/stabilize-once.sh --dry-run     # plan only, no root
+```
+
+It closes everything that is still manual once an upgrade has landed:
+
+1. installs and enables the weekly stack — `update-prepare.timer` (Friday
+   21:55 staging), `update-prompt.timer` (reminders), `update-maintenance.service`
+   — and enables `grub-btrfsd` so a fresh snapshot reaches the GRUB menu without
+   waiting for a `grub-mkconfig`;
+2. merges `/etc/paru.conf.pacnew` and enables `MinimumReleaseAge = 3d`
+   (paru refuses AUR packages modified in the last three days — a delay, not an
+   `IgnorePkg` pin, so no partial-upgrade risk);
+3. runs the maintenance now: cache prune (`KEEP_PACKAGES` versions), journal
+   vacuum, `fstrim`, orphan list, `garuda-health` report;
+4. removes pacman's stale `download-*` temp dirs left by aborted downloads;
+5. verifies timers, guards (PL1, quota, sleep mask, snapshot plumbing), pending
+   updates and disk, then prints what stays manual (AUR, LTS boot test, sleep).
+
+`install-update-timer.sh` had its unit sources pointing at `scripts/systemd`
+(nonexistent), so under `set -e` it died on the first `install` and **none of
+the timer units had ever been installed**. That is fixed, and the test suite now
+asserts that every unit source it references exists.
+
 ## What install does
 
 1. Refuses if an active Wayland/X11 session exists (`--force` overrides it —

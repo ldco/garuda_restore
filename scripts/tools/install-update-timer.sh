@@ -45,7 +45,7 @@ install_timer() {
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
     run install -Dm755 "$SELF_DIR/prompt-run.sh"    "$DEST/prompt-run.sh"
     run install -Dm755 "$SELF_DIR/maintenance-run.sh" "$DEST/maintenance-run.sh"
-    run install -Dm644 "$SELF_DIR/../../systemd/garuda-update-now.service" \
+    run install -Dm644 "$REPO/systemd/garuda-update-now.service" \
         "$DEST/garuda-update-now.service"
 
     say "configuration (MODE=semi: warn, stage, ask)"
@@ -58,11 +58,11 @@ install_timer() {
     fi
 
     say "installing the units"
-    run install -m644 "$SELF_DIR/../systemd/update-prepare.service" "$UNITD/update-prepare.service"
-    run install -m644 "$SELF_DIR/../systemd/update-prepare.timer"   "$UNITD/update-prepare.timer"
-    run install -m644 "$SELF_DIR/../systemd/update-prompt.service"  "$UNITD/update-prompt.service"
-    run install -m644 "$SELF_DIR/../systemd/update-prompt.timer"    "$UNITD/update-prompt.timer"
-    run install -m644 "$SELF_DIR/../systemd/update-maintenance.service" "$UNITD/update-maintenance.service"
+    run install -m644 "$REPO/systemd/update-prepare.service" "$UNITD/update-prepare.service"
+    run install -m644 "$REPO/systemd/update-prepare.timer"   "$UNITD/update-prepare.timer"
+    run install -m644 "$REPO/systemd/update-prompt.service"  "$UNITD/update-prompt.service"
+    run install -m644 "$REPO/systemd/update-prompt.timer"    "$UNITD/update-prompt.timer"
+    run install -m644 "$REPO/systemd/update-maintenance.service" "$UNITD/update-maintenance.service"
 
     say "enabling the weekly timer"
     run systemctl daemon-reload

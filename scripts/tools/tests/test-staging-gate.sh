@@ -187,5 +187,25 @@ check "the runner mirrors output to the console" 'grep -q "/dev/tty1" "$TMP/runn
 check "the failure path restores the desktop from its own unit" 'grep -q "systemd-run --collect --no-block --unit=garuda-update-restore" "$TMP/runner.sh"'
 check "the restore script notifies the user" 'grep -q "notify-send" "$TMP/restore.sh"'
 
+# 13. The one-shot setup script: --dry-run is root-free, names every step, and
+#     the timer installer resolves real unit sources - its paths pointed at
+#     scripts/systemd (nonexistent), so no unit had ever been installed.
+out="$("$REPO/scripts/tools/stabilize-once.sh" --dry-run 2>&1)"; rc=$?
+check "stabilize-once --dry-run works without root" '[ "$rc" -eq 0 ]'
+check "it covers the weekly timer stack" 'grep -q "update-prepare.timer" <<<"$out"'
+check "it covers the paru release-age knob" 'grep -q "MinimumReleaseAge = 3d" <<<"$out"'
+check "it covers the maintenance run" 'grep -q "update-maintenance" <<<"$out"'
+check "it covers stale cache leftovers" 'grep -q "download-" <<<"$out"'
+check "it prints what stays manual" 'grep -q "paru -Sua" <<<"$out"'
+
+out="$("$REPO/scripts/tools/install-update-timer.sh" --dry-run 2>&1)"
+sources="$(grep -oE '/[^ ]*/systemd/(update|garuda)[^ ]*\.(service|timer)' <<<"$out" | sort -u)"
+check "the timer installer references unit sources" '[ -n "$sources" ]'
+missing=0
+while IFS= read -r f; do
+    [ -n "$f" ] && [ -r "$f" ] || missing=$((missing + 1))
+done <<<"$sources"
+check "every referenced unit source exists ($missing missing)" '[ "$missing" -eq 0 ]'
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
