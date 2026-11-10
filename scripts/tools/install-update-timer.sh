@@ -45,6 +45,7 @@ install_timer() {
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
     run install -Dm755 "$SELF_DIR/prompt-run.sh"    "$DEST/prompt-run.sh"
     run install -Dm755 "$SELF_DIR/maintenance-run.sh" "$DEST/maintenance-run.sh"
+    run install -Dm755 "$SELF_DIR/update-alarm.sh"    "$DEST/update-alarm.sh"
     run install -Dm644 "$REPO/systemd/garuda-update-now.service" \
         "$DEST/garuda-update-now.service"
 
@@ -63,6 +64,7 @@ install_timer() {
     run install -m644 "$REPO/systemd/update-prompt.service"  "$UNITD/update-prompt.service"
     run install -m644 "$REPO/systemd/update-prompt.timer"    "$UNITD/update-prompt.timer"
     run install -m644 "$REPO/systemd/update-maintenance.service" "$UNITD/update-maintenance.service"
+    run install -m644 "$REPO/systemd/garuda-update-alarm@.service" "$UNITD/garuda-update-alarm@.service"
 
     say "enabling the weekly timer"
     run systemctl --no-ask-password daemon-reload

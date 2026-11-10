@@ -1,5 +1,6 @@
 [Unit]
 Description=Install the staged Garuda update without a graphical session
+OnFailure=garuda-update-alarm@%n.service
 # Starting this unit stops the desktop as a dependency effect: Conflicts pulls
 # graphical.target down and After orders us after its teardown, so no Qt/Mesa
 # file is replaced while Plasma is still alive. The system manager - not a

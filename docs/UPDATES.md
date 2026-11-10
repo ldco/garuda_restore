@@ -172,6 +172,22 @@ It closes everything that is still manual once an upgrade has landed:
 the timer units had ever been installed**. That is fixed, and the test suite now
 asserts that every unit source it references exists.
 
+## When something fails, you are told
+
+All three update units carry `OnFailure=garuda-update-alarm@%n.service`. A failed
+Friday staging, a failed reminder or a failed install therefore:
+
+- appends `systemctl status` output to `/var/lib/garuda-restore/alerts.log`,
+- broadcasts a line to every tty,
+- posts a critical desktop notification to the active session,
+
+at most once per hour per unit, so a repeated failure cannot become a storm. The
+old behaviour was silence: the evidence sat in a log until somebody looked.
+
+`IgnoreOnIsolate=yes` was in `[Service]` in `update-prepare.service` and
+`update-prompt.service`, where systemd ignores it - a `systemctl isolate` could
+stop a staging run mid-execution. It is a `[Unit]` key and now sits there.
+
 ## Running the pieces by hand
 
 ```bash

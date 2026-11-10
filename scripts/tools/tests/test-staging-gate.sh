@@ -215,5 +215,17 @@ log_line="$(grep -n 'exec >>"\$LOG"' "$REPO/scripts/tools/stabilize-once.sh" | h
 check "stabilize-once captures the terminal before redirecting stdout" '[ -n "$fd_line" ] && [ -n "$log_line" ] && [ "$fd_line" -lt "$log_line" ]'
 check "stabilize-once reports through out()" 'grep -q "^out()" "$REPO/scripts/tools/stabilize-once.sh"'
 
+# 15. Unit hygiene: every shipped update unit must be valid, must carry an
+#     OnFailure alarm, and must put IgnoreOnIsolate where systemd reads it
+#     ([Unit]) - it was in [Service], so `isolate` could stop a staging run
+#     mid-execution (2026-10-23).
+out="$(systemd-analyze verify "$REPO"/systemd/update-prepare.service \
+       "$REPO"/systemd/update-prompt.service "$REPO"/systemd/garuda-update-now.service 2>&1 || true)"
+check "no shipped unit has an unknown key" '! grep -q "Unknown key" <<<"$out"'
+check "all three update units carry the alarm" \
+      '[ "$(grep -l "OnFailure=garuda-update-alarm" "$REPO"/systemd/update-prepare.service "$REPO"/systemd/update-prompt.service "$REPO"/systemd/garuda-update-now.service | wc -l)" -eq 3 ]'
+check "the alarm script parses" 'bash -n "$REPO/scripts/tools/update-alarm.sh"'
+check "the alarm reports and rate-limits" 'grep -q "alerts.log" "$REPO/scripts/tools/update-alarm.sh" && grep -q "3600" "$REPO/scripts/tools/update-alarm.sh"'
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

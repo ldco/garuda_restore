@@ -1,15 +1,16 @@
 [Unit]
 Description=Off-peak upgrade: warn 21:55, stage 22:00, ask before applying
+OnFailure=garuda-update-alarm@%n.service
 Documentation=file:///usr/local/lib/garuda-restore/prepare-run.sh
 Wants=network-online.target
 After=network-online.target
+# isolate (update-now.sh stops graphical.target) must not stop us mid-staging
+IgnoreOnIsolate=yes
 ConditionPathExists=/usr/local/lib/garuda-restore/update-engine.sh
 ConditionACPower=true
 
 [Service]
 Type=oneshot
-# update-now.sh stops graphical.target; this unit must outlive that.
-IgnoreOnIsolate=yes
 ExecStart=/usr/local/lib/garuda-restore/prepare-run.sh
 Nice=10
 IOSchedulingClass=best-effort

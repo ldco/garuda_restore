@@ -1,0 +1,8 @@
+[Unit]
+Description=Report a failed update unit (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/garuda-restore/update-alarm.sh %i
+StandardOutput=journal
+StandardError=journal

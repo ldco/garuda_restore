@@ -1,10 +1,11 @@
 [Unit]
 Description=Remind about staged updates until they are installed
+OnFailure=garuda-update-alarm@%n.service
+# isolate (update-now.sh stops graphical.target) must not stop us mid-run
+IgnoreOnIsolate=yes
 ConditionPathExists=/usr/local/lib/garuda-restore/prompt-run.sh
 
 [Service]
 Type=oneshot
-# update-now.sh stops graphical.target; this unit must outlive that.
-IgnoreOnIsolate=yes
 ExecStart=/usr/local/lib/garuda-restore/prompt-run.sh
 TimeoutStartSec=infinity
