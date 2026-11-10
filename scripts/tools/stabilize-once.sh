@@ -85,6 +85,13 @@ cache_size() {
 
 if [ "$DRY_RUN" -eq 0 ]; then
     [ "$(id -u)" -eq 0 ] || { printf 'run this with sudo (or use --dry-run)\n' >&2; exit 1; }
+    # One run at a time: a second start while fstrim/paccache are working would
+    # only queue on the same unit and interleave the log.
+    exec 9>/run/stabilize-once.lock
+    if ! flock -n 9; then
+        printf 'stabilize-once: another run is already in progress - nothing to do\n' >&2
+        exit 0
+    fi
     mkdir -p "$(dirname "$LOG")"
     if [ -f "$LOG" ] && [ "$(stat -c %s "$LOG" 2>/dev/null || echo 0)" -gt 2000000 ]; then
         mv -f "$LOG" "$LOG.1"
@@ -126,12 +133,24 @@ else
     done
 
     # Rollback plumbing: without the daemon a fresh snapshot only reaches the
-    # GRUB menu at the next grub-mkconfig.
-    if systemctl is-enabled grub-btrfsd.service >/dev/null 2>&1; then
-        note "    grub-btrfsd                  $(systemctl is-active grub-btrfsd.service 2>&1 || true)"
-    else
+    # GRUB menu at the next grub-mkconfig. It needs inotifywait; without it the
+    # unit fails in 22 ms (2026-11-11) and must not stay enabled+failed.
+    if ! command -v inotifywait >/dev/null 2>&1; then
+        note "    installing inotify-tools (grub-btrfsd needs inotifywait)"
+        run pacman -S --needed --noconfirm inotify-tools || step_failed "pacman -S inotify-tools"
+    fi
+    if ! systemctl is-enabled grub-btrfsd.service >/dev/null 2>&1; then
         note "    enabling grub-btrfsd (fresh snapshots appear in the GRUB menu)"
-        run systemctl enable --now grub-btrfsd.service || step_failed "grub-btrfsd.service"
+        run systemctl --no-ask-password enable --now grub-btrfsd.service || true
+    fi
+    if [ "$DRY_RUN" -eq 0 ]; then
+        if systemctl is-active --quiet grub-btrfsd.service; then
+            note "    grub-btrfsd                  active"
+        else
+            note "    grub-btrfsd could not start - disabling it instead of leaving it failed"
+            run systemctl --no-ask-password disable --now grub-btrfsd.service || true
+            step_failed "grub-btrfsd.service"
+        fi
     fi
 fi
 
@@ -166,23 +185,20 @@ if [ ! -e "$FLAG" ]; then
     run mkdir -p "$(dirname "$FLAG")"
     run sh -c "date -Is > '$FLAG'"
 fi
+note "    paccache + journal vacuum + fstrim - fstrim on 477 GiB can take minutes"
 if [ "$DRY_RUN" -eq 1 ]; then
-    info "[dry-run] systemctl start update-maintenance.service"
-    info "[dry-run] maintenance-run.sh --dry-run (requested once)"
-    info "cache: ${cache_before:-?} -> (dry-run)"
+    out "[dry-run] $DEST/maintenance-run.sh --now"
+    note "    cache: ${cache_before:-?} -> (dry-run)"
 else
-    if systemctl start update-maintenance.service 2>/dev/null; then
-        note "    update-maintenance.service ran (log: /var/log/garuda/update-maintenance.log)"
+    if [ -x "$DEST/maintenance-run.sh" ]; then
+        # >&3: the script streams its own tee to the terminal, and keeps its
+        # transcript in /var/log/garuda/update-maintenance.log.
+        "$DEST/maintenance-run.sh" --now >&3 2>&1 || step_failed "maintenance-run.sh failed"
     else
-        note "    unit not available - running maintenance-run.sh directly"
-        if [ -x "$DEST/maintenance-run.sh" ]; then
-            "$DEST/maintenance-run.sh" || step_failed "maintenance-run.sh failed"
-        else
-            step_failed "missing $DEST/maintenance-run.sh"
-        fi
+        step_failed "missing $DEST/maintenance-run.sh"
     fi
     cache_after="$(cache_size)"
-    note "    cache: ${cache_before:-?} -> ${cache_after:-?}"
+    note "    cache: ${cache_before:-?} -> ${cache_after:-?} (KEEP_PACKAGES=2 keeps two versions for rollback)"
 fi
 
 # --- 4. cache leftovers -----------------------------------------------------
@@ -199,6 +215,7 @@ else
         run rm -rf "$d"
     done
 fi
+note "    note: a 2-version cache is kept on purpose; 'sudo paccache -rk1' frees more and gives up rollback depth"
 
 # --- 5. verification --------------------------------------------------------
 say "5/5 verification"

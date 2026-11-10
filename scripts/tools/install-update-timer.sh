@@ -65,17 +65,16 @@ install_timer() {
     run install -m644 "$REPO/systemd/update-maintenance.service" "$UNITD/update-maintenance.service"
 
     say "enabling the weekly timer"
-    run systemctl daemon-reload
-    run systemctl enable --now update-prepare.timer
-    run systemctl enable --now update-prompt.timer
-    run systemctl enable update-maintenance.service
+    run systemctl --no-ask-password daemon-reload
+    run systemctl --no-ask-password enable --now update-prepare.timer
+    run systemctl --no-ask-password enable --now update-prompt.timer
+    run systemctl --no-ask-password enable update-maintenance.service
 
-    # An install that finished before the unit existed leaves its flag behind:
-    # run the maintenance now instead of waiting for the next boot.
-    if [ "$DRY_RUN" -eq 0 ] && [ -e /var/lib/garuda-restore/post-update.pending ]; then
-        say "an applied update is waiting for maintenance - running it now"
-        run systemctl start update-maintenance.service || true
-    fi
+    # Deliberately no maintenance kick here: paccache over a 23 GiB cache plus
+    # fstrim on a 477 GiB btrfs takes minutes, and doing it inside this script
+    # made `stabilize-once.sh` look frozen at "1/5" (2026-11-11). The one-shot
+    # setup runs it in its own step, with output and a message first; a plain
+    # `install-update-timer.sh` leaves the flag to the next boot.
 
     if [ "$DRY_RUN" -eq 0 ]; then
         printf '\n'
@@ -88,13 +87,13 @@ install_timer() {
 
 uninstall_timer() {
     say "disabling and removing the units"
-    run systemctl disable --now update-prepare.timer update-prompt.timer || true
-    run systemctl stop update-prepare.service update-prompt.service || true
-    run systemctl disable update-maintenance.service || true
+    run systemctl --no-ask-password disable --now update-prepare.timer update-prompt.timer || true
+    run systemctl --no-ask-password stop update-prepare.service update-prompt.service || true
+    run systemctl --no-ask-password disable update-maintenance.service || true
     run rm -f "$UNITD/update-prepare.timer" "$UNITD/update-prepare.service" \
                "$UNITD/update-prompt.timer" "$UNITD/update-prompt.service" \
                "$UNITD/update-maintenance.service"
-    run systemctl daemon-reload
+    run systemctl --no-ask-password daemon-reload
     run rm -f "$DEST/prepare-run.sh" "$DEST/prompt-run.sh" "$DEST/maintenance-run.sh"
     say "removed the units and prepare-run.sh (update-engine.sh kept in $DEST)"
 }

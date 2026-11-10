@@ -51,6 +51,13 @@ run() {
 
 if [ "$DRY_RUN" -eq 0 ]; then
     [ "$(id -u)" -eq 0 ] || { echo "maintenance-run: needs root (or --dry-run)" >&2; exit 1; }
+    # One maintenance at a time: paccache and fstrim must not race when the boot
+    # unit and a manual --now run overlap.
+    exec 9>/run/garuda-maintenance.lock
+    if ! flock -n 9; then
+        echo "maintenance-run: another run is already in progress - nothing to do"
+        exit 0
+    fi
     mkdir -p "$STATE" "$(dirname "$LOG")"
     if [ "$NOW" -eq 1 ]; then
         exec > >(tee -a "$LOG") 2>&1
