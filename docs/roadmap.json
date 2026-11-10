@@ -184,10 +184,10 @@
     },
     {
       "id": "update-staging-timer",
-      "title": "Semi-automatic Friday upgrade (warn 21:55, stage 22:00, GUI prompt)",
+      "title": "Semi-automatic Friday upgrade with recurring reminders",
       "status": "done",
       "version": "v0.2.0",
-      "notes": "timer 21:55 Europe/Moscow -> prepare-run.sh notifies the active session, sleeps WARN_BEFORE=300s, stages with update-engine prepare (mirrors, -Syy, snapshot, download), then asks via kdialog --yesno (geometry 760x240, timeout PROMPT_TIMEOUT=600 -> Later). Only 'Install now' hands over to update-now.sh. MODE=auto|semi|stage in /etc/garuda-restore/update.conf; GUI is reached from the root service through logind (runuser + XDG_RUNTIME_DIR/DBUS/WAYLAND_DISPLAY). No active session => no install.",
+      "notes": "timer 21:55 Europe/Moscow -> prepare-run.sh notifies the active session, sleeps WARN_BEFORE=300s, stages with update-engine prepare (mirrors, -Syy, snapshot, download), then asks via kdialog --yesno (geometry 760x240, timeout PROMPT_TIMEOUT=600 -> Later). Only 'Install now' hands over to update-now.sh. MODE=auto|semi|stage in /etc/garuda-restore/update.conf; GUI is reached from the root service through logind (runuser + XDG_RUNTIME_DIR/DBUS/WAYLAND_DISPLAY). No active session => no install. update-prompt.timer (every 5 min, inert unless due) calls prompt-run.sh: MODE=semi only, staged/pending>0, no lock/engine, then the cadence: first reminder 1 h after the staging prompt, then every 3 h until install or the next Friday. State in /var/lib/garuda-restore/prompt.state (LAST_PROMPT, DECLINES). 'Install now' hands over to update-now.sh. --dry-run and NOCOWBOY_STATE/NOCOWBOY_LOG test hooks validate the cadence without GUI.",
       "verify": [
         {
           "type": "file",

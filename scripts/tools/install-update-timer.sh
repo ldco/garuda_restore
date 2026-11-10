@@ -43,6 +43,7 @@ install_timer() {
     run install -Dm755 "$SELF_DIR/update-engine.sh" "$DEST/update-engine.sh"
     run install -Dm755 "$SELF_DIR/update-now.sh"    "$DEST/update-now.sh"
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
+    run install -Dm755 "$SELF_DIR/prompt-run.sh"    "$DEST/prompt-run.sh"
 
     say "configuration (MODE=semi: warn, stage, ask)"
     if [ -e /etc/garuda-restore/update.conf ] && [ "$DRY_RUN" -eq 0 ]; then
@@ -50,20 +51,23 @@ install_timer() {
     else
         run mkdir -p /etc/garuda-restore
         run sh -c 'printf "%s
-" "# MODE: semi  = warn, stage, then ask (GUI yes/no) before applying" "#       auto  = warn, stage, apply and reboot without asking" "#       stage = warn, stage only" "MODE=semi" "" "# Seconds between the 21:55 warning and the start of staging." "WARN_BEFORE=300" "" "# Seconds the GUI prompt waits before treating silence as Later." "PROMPT_TIMEOUT=600" > /etc/garuda-restore/update.conf'
+" "# MODE: semi  = warn, stage, then ask (GUI yes/no) before applying" "#       auto  = warn, stage, apply and reboot without asking" "#       stage = warn, stage only" "MODE=semi" "" "# Seconds between the 21:55 warning and the start of staging." "WARN_BEFORE=300" "" "# Seconds the GUI prompt waits before treating silence as Later." "PROMPT_TIMEOUT=600" "" "# Reminder cadence after a decline/timeout: first in 1 h, then every 3 h," "# until INSTALL or until the next Friday run." "REMIND_FIRST=3600" "REMIND_EVERY=10800" > /etc/garuda-restore/update.conf'
     fi
 
     say "installing the units"
     run install -m644 "$SELF_DIR/../systemd/update-prepare.service" "$UNITD/update-prepare.service"
     run install -m644 "$SELF_DIR/../systemd/update-prepare.timer"   "$UNITD/update-prepare.timer"
+    run install -m644 "$SELF_DIR/../systemd/update-prompt.service"  "$UNITD/update-prompt.service"
+    run install -m644 "$SELF_DIR/../systemd/update-prompt.timer"    "$UNITD/update-prompt.timer"
 
     say "enabling the weekly timer"
     run systemctl daemon-reload
     run systemctl enable --now update-prepare.timer
+    run systemctl enable --now update-prompt.timer
 
     if [ "$DRY_RUN" -eq 0 ]; then
         printf '\n'
-        systemctl list-timers update-prepare.timer --no-pager || true
+        systemctl list-timers update-prepare.timer update-prompt.timer --no-pager || true
         printf '\nRun a staging pass now:  sudo systemctl start update-prepare.service\n'
         printf 'Status file:             /var/lib/garuda-restore/prepare.status\n'
         printf 'Log:                     /var/log/garuda/update-prepare.log\n'
@@ -72,11 +76,12 @@ install_timer() {
 
 uninstall_timer() {
     say "disabling and removing the units"
-    run systemctl disable --now update-prepare.timer || true
-    run systemctl stop update-prepare.service || true
-    run rm -f "$UNITD/update-prepare.timer" "$UNITD/update-prepare.service"
+    run systemctl disable --now update-prepare.timer update-prompt.timer || true
+    run systemctl stop update-prepare.service update-prompt.service || true
+    run rm -f "$UNITD/update-prepare.timer" "$UNITD/update-prepare.service" \
+               "$UNITD/update-prompt.timer" "$UNITD/update-prompt.service"
     run systemctl daemon-reload
-    run rm -f "$DEST/prepare-run.sh"
+    run rm -f "$DEST/prepare-run.sh" "$DEST/prompt-run.sh"
     say "removed the units and prepare-run.sh (update-engine.sh kept in $DEST)"
 }
 

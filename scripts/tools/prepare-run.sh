@@ -31,6 +31,7 @@ WARN_BEFORE=300
 PROMPT_TIMEOUT=600
 [ -r "$CONF" ] && . "$CONF"
 
+[ "$(id -u)" -eq 0 ] || { echo "prepare-run: needs root" >&2; exit 1; }
 mkdir -p "$STATE" /var/log/garuda
 exec >>"$LOG" 2>&1
 echo "=== $(date -Is) update run (MODE=$MODE WARN_BEFORE=$WARN_BEFORE) ==="
@@ -157,8 +158,10 @@ case "$MODE" in
             fi
             echo "FATAL: missing $UPDATE_NOW"; exit 1
         fi
+        # start the reminder cadence: first reminder in REMIND_FIRST (1 h), then every 3 h
+        printf 'LAST_PROMPT=%s\nDECLINES=0\n' "$(date +%s)" > "$STATE/prompt.state"
         status staged 0 "$pending" "$cache" "${snap:-n/a}" "$news"
-        notify "Updates staged" "${pending} packages are ready. Run update-now.sh when convenient." normal
+        notify "Updates staged" "${pending} packages are ready; I will ask again in an hour." normal
         exit 0
         ;;
     stage)
