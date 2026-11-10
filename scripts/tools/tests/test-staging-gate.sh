@@ -207,5 +207,13 @@ while IFS= read -r f; do
 done <<<"$sources"
 check "every referenced unit source exists ($missing missing)" '[ "$missing" -eq 0 ]'
 
+# 14. stabilize-once must show progress on the terminal, not only in the log.
+#     2026-11-11: `exec >>"$LOG"` ran before `exec 3>&1`, so fd 3 was the log
+#     itself and a real run printed nothing - it looked like a no-op.
+fd_line="$(grep -n 'exec 3>&1' "$REPO/scripts/tools/stabilize-once.sh" | head -1 | cut -d: -f1)"
+log_line="$(grep -n 'exec >>"\$LOG"' "$REPO/scripts/tools/stabilize-once.sh" | head -1 | cut -d: -f1)"
+check "stabilize-once captures the terminal before redirecting stdout" '[ -n "$fd_line" ] && [ -n "$log_line" ] && [ "$fd_line" -lt "$log_line" ]'
+check "stabilize-once reports through out()" 'grep -q "^out()" "$REPO/scripts/tools/stabilize-once.sh"'
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

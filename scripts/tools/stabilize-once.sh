@@ -38,9 +38,16 @@ LOG=/var/log/garuda/stabilize-once.log
 DRY_RUN=0
 FAILED=0
 
-say()  { printf '\n==> %s\n' "$*"; }
-info() { printf '    %s\n' "$*"; }
-warn() { printf '    warning: %s\n' "$*" >&2; }
+TTY=0   # 1 once stdout has been redirected to the log and fd 3 holds the tty
+
+out() { # write a line to the terminal (when there is one) and to the log
+    [ "$TTY" -eq 1 ] && printf '%s\n' "$1" >&3
+    printf '%s\n' "$1"
+}
+say()  { out ""; out "==> $*"; }
+info() { out "    $*"; }
+note() { out "$*"; }
+warn() { out "    warning: $*"; }
 
 for arg in "$@"; do
     case "$arg" in
@@ -60,7 +67,7 @@ pending_updates() {
 # Run a mutating command (or print it in --dry-run).
 run() {
     if [ "$DRY_RUN" -eq 1 ]; then
-        printf '[dry-run] %s\n' "$*"
+        out "[dry-run] $*"
     else
         "$@"
     fi
@@ -82,15 +89,12 @@ if [ "$DRY_RUN" -eq 0 ]; then
     if [ -f "$LOG" ] && [ "$(stat -c %s "$LOG" 2>/dev/null || echo 0)" -gt 2000000 ]; then
         mv -f "$LOG" "$LOG.1"
     fi
+    # fd 3 must hold the terminal BEFORE stdout moves to the log - the other
+    # order sent every line to the log and left the terminal empty (2026-11-11).
+    exec 3>&1
     exec >>"$LOG" 2>&1
-    exec 3>&1                      # keep the terminal: the log is the record
+    TTY=1
 fi
-
-echo_out() { printf '%s\n' "$*" >&3; }
-
-note() { # terminal + log
-    if [ "$DRY_RUN" -eq 1 ]; then printf '%s\n' "$*"; else printf '%s\n' "$*" >&3; fi
-}
 
 # --- preflight --------------------------------------------------------------
 say "preflight"
