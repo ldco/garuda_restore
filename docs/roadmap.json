@@ -168,6 +168,19 @@
           "path": "docs/ARCHITECTURE-PROTOCOL.md"
         }
       ]
+    },
+    {
+      "id": "workstation-profile",
+      "title": "Portable workstation profile (bootstrap.sh) with hardware detection",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "Single entrypoint instead of a distro: detect (DMI, ASUS WMI, DRM card vendors, dracut, oomd, zram, snapshots, systemd, battery) then layer1 (oom-guard, CPU quota, /usr/local staging, LTS) and layer2 (profile policy check, PL1 cap, battery unit, display map) only on a recognised machine. Idempotent, no packages/upgrades/reboots, rootless by default with exact root commands printed; --dry-run, status and uninstall included.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "bootstrap.sh"
+        }
+      ]
     }
   ],
   "status_model": 2

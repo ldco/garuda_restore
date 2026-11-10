@@ -51,6 +51,7 @@ rm ~/.config/pacman/makepkg.conf
 | Docs | `SYSTEM-STATE.md` current-state section; `roadmap.json` populated | — |
 | Repo | FedoraKDE move commit message corrected | — |
 | Docs | `ARCHITECTURE-PROTOCOL.md` adopted and corrected (OOMScoreAdjust/MemoryHigh claims disproved; display topology; LTS state) | `git revert <commit>` |
+| Profile | `bootstrap.sh` — portable Layer 1 (OOM containment, CPU quota, update tooling, LTS) + Layer 2 hardware adaptation (ASUS only), with `detect`/`status`/`uninstall` and `--dry-run` | `./bootstrap.sh uninstall` |
 
 ---
 
