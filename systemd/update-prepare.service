@@ -1,5 +1,5 @@
 [Unit]
-Description=Stage and apply the Garuda upgrade (Friday 22:00 MSK)
+Description=Off-peak upgrade: warn 21:55, stage 22:00, ask before applying
 Documentation=file:///usr/local/lib/garuda-restore/prepare-run.sh
 Wants=network-online.target
 After=network-online.target

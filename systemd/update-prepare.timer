@@ -1,8 +1,8 @@
 [Unit]
-Description=Weekly off-peak upgrade: stage + apply (Friday 22:00 MSK)
+Description=Weekly off-peak upgrade: warn 21:55, stage 22:00, prompt to apply
 
 [Timer]
-OnCalendar=Fri *-*-* 22:00:00 Europe/Moscow
+OnCalendar=Fri *-*-* 21:55:00 Europe/Moscow
 Persistent=true
 AccuracySec=1min
 Unit=update-prepare.service

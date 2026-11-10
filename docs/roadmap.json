@@ -184,10 +184,10 @@
     },
     {
       "id": "update-staging-timer",
-      "title": "Weekly off-peak upgrade: stage + apply (Friday 22:00 MSK)",
+      "title": "Semi-automatic Friday upgrade (warn 21:55, stage 22:00, GUI prompt)",
       "status": "done",
       "version": "v0.2.0",
-      "notes": "systemd/update-prepare.timer: OnCalendar=Fri *-*-* 22:00:00 Europe/Moscow, Persistent=true, AccuracySec=1min, AC only. prepare-run.sh diffs the Arch news RSS, runs update-engine.sh prepare (mirrors, -Syy, snapshot, download), then with AUTO_APPLY=1 hands over to update-now.sh: GUI stops, install runs as a transient system unit, automatic reboot on success, desktop returns on failure. AUTO_APPLY=0 in /etc/garuda-restore/update.conf keeps stage-only. Service has IgnoreOnIsolate=yes and TimeoutStartSec=infinity so the transaction cannot be killed.",
+      "notes": "timer 21:55 Europe/Moscow -> prepare-run.sh notifies the active session, sleeps WARN_BEFORE=300s, stages with update-engine prepare (mirrors, -Syy, snapshot, download), then asks via kdialog --yesno (geometry 760x240, timeout PROMPT_TIMEOUT=600 -> Later). Only 'Install now' hands over to update-now.sh. MODE=auto|semi|stage in /etc/garuda-restore/update.conf; GUI is reached from the root service through logind (runuser + XDG_RUNTIME_DIR/DBUS/WAYLAND_DISPLAY). No active session => no install.",
       "verify": [
         {
           "type": "file",

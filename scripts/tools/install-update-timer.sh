@@ -44,12 +44,13 @@ install_timer() {
     run install -Dm755 "$SELF_DIR/update-now.sh"    "$DEST/update-now.sh"
     run install -Dm755 "$SELF_DIR/prepare-run.sh"   "$DEST/prepare-run.sh"
 
-    say "configuration (AUTO_APPLY=1: stage + apply in one run)"
+    say "configuration (MODE=semi: warn, stage, ask)"
     if [ -e /etc/garuda-restore/update.conf ] && [ "$DRY_RUN" -eq 0 ]; then
         info "keeping existing /etc/garuda-restore/update.conf"
     else
         run mkdir -p /etc/garuda-restore
-        run sh -c 'printf "%s\n" "# AUTO_APPLY=1 -> staging also installs and reboots." "# AUTO_APPLY=0 -> staging only; apply later with update-now.sh." AUTO_APPLY=1 > /etc/garuda-restore/update.conf'
+        run sh -c 'printf "%s
+" "# MODE: semi  = warn, stage, then ask (GUI yes/no) before applying" "#       auto  = warn, stage, apply and reboot without asking" "#       stage = warn, stage only" "MODE=semi" "" "# Seconds between the 21:55 warning and the start of staging." "WARN_BEFORE=300" "" "# Seconds the GUI prompt waits before treating silence as Later." "PROMPT_TIMEOUT=600" > /etc/garuda-restore/update.conf'
     fi
 
     say "installing the units"

@@ -52,7 +52,7 @@ rm ~/.config/pacman/makepkg.conf
 | Repo | FedoraKDE move commit message corrected | — |
 | Docs | `ARCHITECTURE-PROTOCOL.md` adopted and corrected (OOMScoreAdjust/MemoryHigh claims disproved; display topology; LTS state) | `git revert <commit>` |
 | Profile | `bootstrap.sh` — portable Layer 1 (OOM containment, CPU quota, update tooling, LTS) + Layer 2 hardware adaptation (ASUS only), with `detect`/`status`/`uninstall` and `--dry-run` | `./bootstrap.sh uninstall` |
-| Updates | Weekly upgrade `update-prepare.timer` (Friday 22:00 Europe/Moscow, Persistent, AC only): stages, then hands over to `update-now.sh` which stops the GUI, installs on tty1 and reboots. `AUTO_APPLY=0` in `/etc/garuda-restore/update.conf` restores stage-only. Installer `install-update-timer.sh` | `sudo ./scripts/tools/install-update-timer.sh --uninstall` |
+| Updates | Semi-automatic Friday upgrade: `update-prepare.timer` fires 21:55 Europe/Moscow, notifies the session, stages at 22:00 (snapshot + download), then shows a kdialog yes/no; only "Install now" hands over to `update-now.sh` (GUI stops, installs on tty1, reboots). `MODE=auto` applies without asking, `MODE=stage` stages only; `WARN_BEFORE`/`PROMPT_TIMEOUT` configurable | `sudo ./scripts/tools/install-update-timer.sh --uninstall` |
 
 ---
 
