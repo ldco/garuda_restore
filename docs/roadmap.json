@@ -155,6 +155,19 @@
           "path": "scripts/tools/thermal-guard.sh"
         }
       ]
+    },
+    {
+      "id": "architecture-protocol",
+      "title": "Adopt the workstation architecture protocol, corrected against measurements",
+      "status": "done",
+      "version": "v0.2.0",
+      "notes": "docs/ARCHITECTURE-PROTOCOL.md replaces the draft: OOMScoreAdjust=-500 is impossible unprivileged and rejected by systemd 262.1 on scopes (and oomd ignores it) -> omit + in-scope score 900; MemoryHigh rejected (livelock) -> hard MemoryMax; both external ports are on the dGPU so there is no iGPU routing; LTS installed 6.18.58-1 with DKMS, default unchanged; no pacman interceptor (sudo secure_path) - prepare/install split is the guardrail.",
+      "verify": [
+        {
+          "type": "file",
+          "path": "docs/ARCHITECTURE-PROTOCOL.md"
+        }
+      ]
     }
   ],
   "status_model": 2

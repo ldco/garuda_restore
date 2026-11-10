@@ -50,6 +50,7 @@ rm ~/.config/pacman/makepkg.conf
 | Sleep | masked (`sleep/suspend/hibernate/hybrid-sleep` → `/dev/null`) | `sudo systemctl unmask sleep.target suspend.target hibernate.target hybrid-sleep.target` |
 | Docs | `SYSTEM-STATE.md` current-state section; `roadmap.json` populated | — |
 | Repo | FedoraKDE move commit message corrected | — |
+| Docs | `ARCHITECTURE-PROTOCOL.md` adopted and corrected (OOMScoreAdjust/MemoryHigh claims disproved; display topology; LTS state) | `git revert <commit>` |
 
 ---
 
