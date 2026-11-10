@@ -7,7 +7,7 @@
 | Kernel | `7.2.11-zen1-1-zen` (linux-lts not installed; fallback plan in the stabilization guide) |
 | GPU driver | `nvidia-open-dkms 615.78.08` + `nvidia-utils`/`lib32-nvidia-utils` 615.78.08 |
 | Desktop | KDE Plasma 6.8.1 / KWin 6.8.1, Wayland |
-| Displays | `eDP-2` 2560x1440@165 scale 1.5 on **card2 (Intel)**; `DP-1` + `HDMI-A-1` on **card1 (NVIDIA)**, HDMI at 2560x1440@144 |
+| Displays | `eDP-2` 2560x1440@165 scale 1.5 on **card2 (Intel)**; `DP-1` (**USB-C**) + `HDMI-A-1` both on **card1 (NVIDIA)** at 2560x1440@144 — the iGPU's `DP-2`/`DP-3` are unused |
 | Memory | 30.9 GiB RAM; swap 62.9 GiB = 32 GiB `/swap/swapfile` (prio -1) + 31 GiB zram (prio 100) |
 | OOM | `systemd-oomd` active; `harness.slice` 18 GiB / 4 GiB / `ManagedOOMMemoryPressure=auto`; `oom-guard.timer` every 10 s; `omit` on WezTerm + plasma units; launcher `~/.local/lib/no-cowboy/harness-run.sh` |
 | Thermals | GPU 35–52 W, P0/P3, 62–63 °C; CPU package 82–88 °C; fans 4000–6300 rpm (dGPU drives the externals) |

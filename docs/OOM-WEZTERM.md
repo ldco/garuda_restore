@@ -4,6 +4,8 @@ Status: accepted (design authority: architect). Implemented by
 `scripts/tools/oom-guard.sh`, `scripts/tools/harness-run.sh`,
 `scripts/tools/oom-forensics.sh`.
 
+See docs/ADR-harness-memory.md for the non-crashing strategy (per-scope caps + graceful supervisor).
+
 ## Why WezTerm died
 
 On 2026-11-09 at 21:00:06 the whole WezTerm unit was killed while an AI

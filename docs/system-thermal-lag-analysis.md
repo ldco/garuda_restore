@@ -6,8 +6,8 @@
 
 > **Corrections of 2026-11-10 (measured, not inferred).**
 > 1. `nvidia_drm.fbdev=1` is **not a GRUB flag on this system** — the cmdline has no such parameter, and `fbdev`/`modeset` are `Y` because nvidia-open 615 defaults them. Deleting a GRUB argument changes nothing. The 2026-06-13 causal chain below is therefore historical.
-> 2. The real idle-power driver is the **display topology**: `card1` (NVIDIA) owns `DP-1` and `HDMI-A-1`, `card2` (Intel) owns `eDP-2`. KWin composites the two external monitors on the dGPU, so it never reaches D3. Measured: `P0/P3`, **35–52 W**, 13–34 % util, 62–63 °C, CPU package 82–88 °C, EC fans **4000–6300 rpm**.
-> 3. The fan speed follows GPU/CPU power, **not the profile label** — the same `Performance` profile measured 4000/4200 rpm and 6000/6300 rpm minutes apart.
+> 2. The real idle-power driver is the **display topology**: `card1` (NVIDIA) owns `DP-1` and `HDMI-A-1` — `DP-1` is the USB-C DP port on this unit, so **both external ports are wired to the dGPU**. `card2` (Intel) owns only `eDP-2`; its `DP-2`/`DP-3` are disconnected and are not physical ports. KWin composites both externals on the dGPU, so it never reaches D3. Measured: `P0/P3`, **35–52 W**, 13–34 % util, 62–63 °C, CPU package 82–88 °C, EC fans **4000–6300 rpm**.
+> 3. The fan speed follows GPU/CPU power, **not the profile label** — the same `Performance` profile measured 4000/4200 rpm, 6000/6300 rpm and 4400/4700 rpm at different moments. With the AI harness running (CPU package 86–92 °C) the fans track CPU heat, not the 33 W GPU.
 > 4. `asusctl profile set Balanced` is **not** the quiet profile on this EC: it drove the fans to near-maximum RPM (a thermal scare, hours of recovery). Keep `Performance` on AC and `Quiet` on battery.
 
 ---
@@ -460,7 +460,16 @@ nvidia-smi --query-gpu=power.draw,utilization.gpu,pstate,temperature.gpu --forma
 grep -H . /sys/class/hwmon/hwmon*/fan*_input
 ```
 
-**The lever is the display topology, not the profile.** On this machine `card2` (Intel) exposes `DP-2` and `DP-3` (USB-C DP alt-mode) while `DP-1`/`HDMI-A-1` are on the NVIDIA dGPU. Moving one external monitor to a `card2` connector should let the dGPU idle; lower its refresh rate (144→60) is the no-cable fallback. Keep `Performance` on AC — never `Balanced`.
+**There is no "move the monitor to the iGPU" step on this unit.** Both external ports are wired to the dGPU: the USB-C monitor enumerates as `card1-DP-1`, next to `card1-HDMI-A-1`; the iGPU's `DP-2`/`DP-3` are disconnected and not exposed as physical ports.
+
+**The one measurable lever is refresh rate.** Measured 2026-11-10, both externals 2560x1440:
+
+| Externals | dGPU power | P-state | fans |
+|---|---|---|---|
+| 144 Hz + 144 Hz | **33.6 W** | P3 | 4400 / 4700 rpm |
+| 60 Hz + 60 Hz | **26.0 W** | P5 | 4500 / 4700 rpm |
+
+~7.5 W (~22 %) and one P-state, instantly reversible; the fans did not drop because the CPU package was at 86–92 °C under the AI harness — at that moment the fans were following CPU heat. Use 60 Hz on the externals if you want the power back; accept the fan noise under CPU-heavy work. Keep `Performance` on AC — never `Balanced`.
 
 ### Phase 2: Fix Performance Issues
 
@@ -509,13 +518,13 @@ sudo ./scripts/tools/rollback-optimizations.sh
 
 | Metric | Current (Likely) | Target |
 |--------|-----------------|--------|
-| GPU idle power | **35–52W** measured with externals on the dGPU | **<20W** if the externals are moved to the iGPU / lower refresh |
+| GPU idle power | **33–52W** at 144 Hz on both externals | **~26W** measured at 60 Hz; the iGPU route is not available on this unit |
 | CPU idle temp | 70-96°C | **40-60°C** |
 | KWin CPU | 50-80% | **15-25%** |
 | Desktop feel | Stutter/lag | **Butter-smooth at 165Hz** |
 | Blur effects | Enabled (CPU hog) | **Disabled, no visible difference** |
 | Sleep/wake | Broken/crash | **Works within 3 seconds** |
-| Fan noise | **4000–6300 RPM** at the desktop | 0 RPM idle **only** when the dGPU drives no display; otherwise the EC floor is expected |
+| Fan noise | **4000–6300 RPM**; follows the CPU package under AI load | Not a defect here: both externals are on the dGPU and the CPU runs 86–92 °C under the harness |
 
 ---
 

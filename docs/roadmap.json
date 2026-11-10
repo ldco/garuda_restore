@@ -93,10 +93,10 @@
     },
     {
       "id": "display-topology-experiment",
-      "title": "Move an external monitor to the iGPU to lower dGPU idle power",
-      "status": "planned",
+      "title": "Display topology measured; refresh is the only GPU-idle lever",
+      "status": "done",
       "version": "v0.2.0",
-      "notes": "card2 (Intel) exposes DP-2 and DP-3; DP-1/HDMI-A-1 are on card1 (NVIDIA). Measure nvidia-smi power.draw and fan*_input before/after moving a cable (or lowering refresh to 60). Target: dGPU under 20 W idle.",
+      "notes": "Measured 2026-11-10: both external ports are wired to the dGPU (USB-C enumerates as card1-DP-1; iGPU DP-2/DP-3 are disconnected), so there is no iGPU route. Refresh is the only lever: 144/144 Hz → 33.6 W P3; 60/60 Hz → 26.0 W P5 (~7.5 W, one P-state). Fans did not drop because the CPU package was 86–92 °C under the AI harness. 144 Hz restored after the test.",
       "verify": [
         {
           "type": "file",

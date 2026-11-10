@@ -23,11 +23,22 @@ set -Eeuo pipefail
 # --- tunables ---------------------------------------------------------------
 # No MemoryHigh on purpose: a soft limit below the cap livelocks unreclaimable
 # anon pages (allocations stall at MemoryHigh and never reach MemoryMax - measured
-# during the containment test, 60s of no progress). One hard cap, one kill path.
-MEMORY_MAX="18G"      # 58% of this machine's 30.9G RAM
+# during the containment test, 60s of no progress). One hard cap per scope.
+MEMORY_MAX="18G"      # slice ceiling: 58% of this machine's 30.9G RAM
 MEMORY_SWAP_MAX="4G"  # zram-backed grace; prevents btrfs swapfile thrash
 OOM_SCORE_ADJ="900"   # kernel-OOM victim priority, applied at scope creation
 GUARD_INTERVAL="10s"  # must stay below oomd's 20s pressure duration
+#
+# Per-scope split (enforced by harness-run.sh with the same numbers, see
+# docs/ADR-harness-memory.md): two concurrent instances each get
+# MemoryMax=9G / MemorySwapMax=2G, so 2 x 9G = the 18G slice ceiling and one
+# tab can never starve the other. A per-instance watchdog sends SIGTERM at
+# PER_SCOPE_SOFT_PERCENT of the per-scope cap (~7.6 GiB anon) and respawns
+# `nocowboy --continue`, turning an overflow into a clean restart instead of a
+# kernel SIGKILL. If the split changes, keep 2 x PER_SCOPE_MEMORY_MAX <= MEMORY_MAX.
+PER_SCOPE_MEMORY_MAX="9G"
+PER_SCOPE_MEMORY_SWAP_MAX="2G"
+PER_SCOPE_SOFT_PERCENT="85"
 # ---------------------------------------------------------------------------
 
 SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
@@ -205,6 +216,7 @@ ManagedOOMPreference=omit"
             -p MemoryHigh -p MemoryMax -p MemorySwapMax \
             -p ManagedOOMMemoryPressure 2>/dev/null | sed 's/^/  /'
         say "harness scope: oom_score_adj=${OOM_SCORE_ADJ} (applied inside the scope)"
+        say "per-scope split: MemoryMax=${PER_SCOPE_MEMORY_MAX} MemorySwapMax=${PER_SCOPE_MEMORY_SWAP_MAX} (SIGTERM at ${PER_SCOPE_SOFT_PERCENT}% anon -> respawn)"
     fi
 
     echo "Done. Launch heavy work as:  harness <command>"
